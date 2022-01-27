@@ -1,4 +1,4 @@
-# Project name
+# Comparing the long-term risk of stroke/MI in patients after coronavirus infection with other respiratory infections
 
 ## Project description
 
@@ -25,7 +25,7 @@ Phenotyping algorithms and codelists are available [here]
 
 ## Project approval
 
-This project has been approved by the CVD-COVID-UK / COVID-IMPACT Approvals & Oversight Board (project: CCU002_04).
+This is a sub-project of [project CCU002](https://github.com/BHFDSC/CCU002) approved by the CVD-COVID-UK / COVID-IMPACT Approvals & Oversight Board (sub-project: CCU002_04).
 
 ## License
 
