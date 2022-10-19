@@ -26,6 +26,8 @@ CREATE TABLE SAILWWMCCV.CCU002_04_FLU_COHORT_20220329 (
     -- Exposure --------------------------------
     exp_confirmed_flu_pneumonia_date       date,
     exp_confirmed_flu_pneumonia_phenotype  char(30),
+    exp_flu                                smallint,
+    exp_pneumonia                          smallint,
     -- Comparison group ------------------------
     com_non_flu_pneumonia_infection        smallint,
     -- Outcomes --------------------------------
@@ -62,6 +64,7 @@ CREATE TABLE SAILWWMCCV.CCU002_04_FLU_COHORT_20220329 (
     out_stroke_sah_hs                      date,
     -- Combined outcomes -----------------------
     out_arterial_event                     date,
+    out_arterial_event_v2                  date,
     out_venous_event                       date,
     out_haematological_event               date,
     -- Covariates -------------------------------
@@ -132,9 +135,9 @@ CREATE TABLE SAILWWMCCV.CCU002_04_FLU_COHORT_20220329 (
     )
 DISTRIBUTE BY HASH(alf_e);
 
-
 --DROP TABLE SAILWWMCCV.CCU002_04_FLU_COHORT_20220329;
 --TRUNCATE TABLE SAILWWMCCV.CCU002_04_FLU_COHORT_20220329 IMMEDIATE;
+
 
 INSERT INTO SAILWWMCCV.CCU002_04_FLU_COHORT_20220329 (alf_e, cov_sex, wob, death_date, cov_age, lsoa2011, cov_deprivation,
                                                       rural_urban, gp_coverage_end_date, care_home)
@@ -153,6 +156,15 @@ INSERT INTO SAILWWMCCV.CCU002_04_FLU_COHORT_20220329 (alf_e, cov_sex, wob, death
     WHERE flu_cohort = 1;
 
 SELECT * FROM SAILWWMCCV.CCU002_04_FLU_COHORT_20220329;
+
+UPDATE SAILWWMCCV.CCU002_04_FLU_COHORT_20220329  tgt
+SET cov_age = der_age_,
+    cov_deprivation = wimd2019_quintile_inception
+FROM SAILWMCCV.C19_COHORT16 src
+WHERE tgt.alf_e = src.alf_e;
+
+DELETE FROM SAILWWMCCV.CCU002_04_FLU_COHORT_20220329
+WHERE cov_age < 18;
 
 -- ***********************************************************************************************
 -- Determine lost to follow up cases
@@ -257,6 +269,7 @@ UPDATE SAILWWMCCV.CCU002_04_FLU_COHORT_20220329
 SET cov_ever_pe_vt = 1
 WHERE cov_ever_dvt_icvt = 1 OR cov_ever_pe_vt = 1;
 
+SELECT count(*) FROM SAILWWMCCV.CCU002_04_FLU_COHORT_20220329 WHERE cov_ever_pe_vt = 1;
 -- ***********************************************************************************************
 -- Add ethnicity using SAILWWMCCV.WMCC_COMB_ETHN_EHRD
 -- ONS categories ('White', 'Mixed', 'Asian', 'Black', 'Other')
@@ -288,7 +301,6 @@ WHERE alf_e NOT IN (SELECT DISTINCT alf_e
                     FROM SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20220329
                     WHERE record_date IS NOT NULL);
 
-SELECT count(DISTINCT alf_e) FROM SAILWWMCCV.CCU002_04_FLU_COHORT_20220329 WHERE com_non_flu_pneumonia_infection = 1;
 -- ***********************************************************************************************
 -- Update outcomes using SAILWWMCCV.CCU002_04_FLU_COHORT_CVD_OUTCOMES_FIRST
 -------------------------------------------------------------------------------------------------
@@ -377,8 +389,6 @@ FROM (SELECT alf_e,
       WHERE name IN ('DVT_DVT', 'DVT_PREGNANCY')
       GROUP BY alf_e) src
 WHERE tgt.alf_e = src.alf_e;
-
-SELECT count(*) FROM SAILWWMCCV.CCU002_04_FLU_COHORT_20220329  WHERE out_dvt_dvt IS NOT NULL;
 -------------------------------------------------------------------------------------------------
 UPDATE SAILWWMCCV.CCU002_04_FLU_COHORT_20220329 tgt
 SET tgt.out_icvt_pregnancy = src.record_date
@@ -550,8 +560,6 @@ WHERE tgt.alf_e = src.alf_e;
 
 -- ***********************************************************************************************
 -- Update grouped outcomes
---------------------------------------------------------------------------------------------------
-SELECT DISTINCT name FROM SAILWWMCCV.CCU002_04_FLU_COHORT_CVD_OUTCOMES_ALL_20220115;
 -------------------------------------------------------------------------------------------------
 UPDATE SAILWWMCCV.CCU002_04_FLU_COHORT_20220329 tgt
 SET tgt.out_arterial_event = src.out_arterial_event
@@ -680,12 +688,9 @@ FROM (SELECT alf_e,
       GROUP BY alf_e) src
 WHERE tgt.alf_e = src.alf_e
 
-
 UPDATE SAILWWMCCV.CCU002_04_FLU_COHORT_20220329 tgt
 SET tgt.cov_n_disorder = 0
 WHERE cov_n_disorder IS NULL AND gp_coverage_end_date IS NOT NULL;
-
-SELECT max(cov_n_disorder) FROM SAILWWMCCV.CCU002_04_FLU_COHORT_20220329;
 
 -- ***********************************************************************************************
 -- Apply further exclusions
@@ -696,8 +701,38 @@ OR death_date < exp_confirmed_flu_pneumonia_date
 OR (cov_sex=1 AND cov_cocp_meds=1)
 OR (cov_sex=1 AND cov_hrt_meds=1);
 
--- ***********************************************************************************************
-SELECT count(*) FROM SAILWWMCCV.CCU002_04_FLU_COHORT_20220329
-WHERE cov_unique_medications <> 0;
 
-SELECT * FROM SAILWWMCCV.CCU002_04_FLU_COHORT_20220329
+-------------------------------------------------------------------------------------------------
+-- Add arterial events flag based on CCU002-01 definition
+-------------------------------------------------------------------------------------------------
+UPDATE SAILWWMCCV.CCU002_04_FLU_COHORT_20220329 tgt
+SET tgt.out_arterial_event_v2 = src.out_arterial_event_v2
+FROM (SELECT alf_e,
+             min(record_date) AS out_arterial_event_v2
+      FROM (SELECT alf_e,
+                   record_date
+            FROM SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_FIRST_20220329
+            WHERE name IN ('AMI','STROKE_ISCH','ARTERIAL_EMBOLISM_OTHR')
+            AND code NOT LIKE 'G45%' -- 'STROKE_TIA'
+            )
+      GROUP BY alf_e
+      ) src
+WHERE tgt.alf_e = src.alf_e;
+
+--------------------------------------------------------------------------------------------------
+-- Add flags for flu and pneumonia infection
+--------------------------------------------------------------------------------------------------
+UPDATE SAILWWMCCV.CCU002_04_FLU_COHORT_20220329 tgt
+SET tgt.exp_flu = src.flu,
+    tgt.exp_pneumonia = src.pneumonia
+FROM (SELECT alf_e,
+             record_date,
+             flu,
+             pneumonia,
+             ROW_NUMBER() OVER(PARTITION BY alf_e ORDER BY record_date ASC) AS row_num
+      FROM SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20220329
+      WHERE status = 'Confirmed'
+      ) src
+WHERE tgt.alf_e = src.alf_e
+AND row_num = 1;
+
