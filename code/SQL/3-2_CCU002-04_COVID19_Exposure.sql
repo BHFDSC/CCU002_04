@@ -14,7 +14,7 @@ CREATE OR REPLACE VARIABLE SAILWWMCCV.PARAM_CCU002_04_COVID_END_DT DATE DEFAULT 
 -- ***********************************************************************************************
 -- Create a table containing all COVID19 records for CCU002-04 cohort
 -- ***********************************************************************************************
-CREATE TABLE SAILWWMCCV.CCU002_04_COVID19_ALL_20220329 (
+CREATE TABLE SAILWWMCCV.CCU002_04_COVID19_ALL_20220630 (
     alf_e                bigint,
     record_date          date,
     covid19_status       char(40),
@@ -25,11 +25,11 @@ CREATE TABLE SAILWWMCCV.CCU002_04_COVID19_ALL_20220329 (
     primary_position     char(1)
     )
 DISTRIBUTE BY HASH(alf_e);
---DROP TABLE SAILWWMCCV.CCU002_04_COVID19_ALL_20220329;
-TRUNCATE TABLE SAILWWMCCV.CCU002_04_COVID19_ALL_20220329 IMMEDIATE;
+--DROP TABLE SAILWWMCCV.CCU002_04_COVID19_ALL_20220630;
+--TRUNCATE TABLE SAILWWMCCV.CCU002_04_COVID19_ALL_20220630 IMMEDIATE;
 -------------------------------------------------------------------------------------------------
 -- Add PCR test results
-INSERT INTO SAILWWMCCV.CCU002_04_COVID19_ALL_20220329
+INSERT INTO SAILWWMCCV.CCU002_04_COVID19_ALL_20220630
     SELECT alf_e,
            test_date_cleaned AS record_date,
            'Confirmed COVID19' AS covid19_status,
@@ -48,7 +48,7 @@ INSERT INTO SAILWWMCCV.CCU002_04_COVID19_ALL_20220329
 
 -------------------------------------------------------------------------------------------------
 -- Add COVID19 related records from hospital data
-INSERT INTO SAILWWMCCV.CCU002_04_COVID19_ALL_20220329
+INSERT INTO SAILWWMCCV.CCU002_04_COVID19_ALL_20220630
     SELECT alf_e,
            admis_dt AS record_date,
            CASE WHEN diag_cd = 'U071' OR epi_diag_cd = 'U071' THEN 'Confirmed COVID19'
@@ -73,7 +73,7 @@ INSERT INTO SAILWWMCCV.CCU002_04_COVID19_ALL_20220329
 
 -------------------------------------------------------------------------------------------------
 -- Add COVID19 related records from Primary care data
-INSERT INTO SAILWWMCCV.CCU002_04_COVID19_ALL_20220329
+INSERT INTO SAILWWMCCV.CCU002_04_COVID19_ALL_20220630
     SELECT alf_e,
            event_dt AS record_date,
            CASE WHEN event_cd_category IN ('Confirmed') THEN 'Confirmed COVID19'
@@ -89,7 +89,9 @@ INSERT INTO SAILWWMCCV.CCU002_04_COVID19_ALL_20220329
                     FROM SAILWWMCCV.CCU002_04_INCLUDED_PATIENTS_20220329
                     WHERE covid_cohort = 1)
     AND event_dt >= SAILWWMCCV.PARAM_CCU002_04_COVID_START_DT
-    AND event_dt <= SAILWWMCCV.PARAM_CCU002_04_COVID_END_DT;
+    AND event_dt <= SAILWWMCCV.PARAM_CCU002_04_COVID_END_DT
+    AND event_cd_category IN ('Confirmed', 'Suspected');
+
 
 -------------------------------------------------------------------------------------------------
 -- COVID19 crirical care records
@@ -97,7 +99,7 @@ INSERT INTO SAILWWMCCV.CCU002_04_COVID19_ALL_20220329
 -- raicu1_text = primary reason for admission
 -- raicu2_text = secondary reason for admission
 -- uraicu_text = ultimate primary reason for admission
-INSERT INTO SAILWWMCCV.CCU002_04_COVID19_ALL_20220329
+INSERT INTO SAILWWMCCV.CCU002_04_COVID19_ALL_20220630
     SELECT alf_e,
            daicu AS record_date, -- ICU admission date
            CASE WHEN raicu1_text LIKE '%COVID-19, confirmed%' OR raicu2_text LIKE '%COVID-19, confirmed%' OR uraicu_text LIKE '%COVID-19, confirmed%'
@@ -128,7 +130,7 @@ INSERT INTO SAILWWMCCV.CCU002_04_COVID19_ALL_20220329
 
 -----------------------------------------------------------------------------------------------
 -- ICNARC weekly
-INSERT INTO SAILWWMCCV.CCU002_04_COVID19_ALL_20220329
+INSERT INTO SAILWWMCCV.CCU002_04_COVID19_ALL_20220630
     SELECT alf_e,
            daicu AS record_date, -- ICU admission date
            CASE WHEN raicu1_text LIKE '%COVID-19, confirmed%' OR raicu2_text LIKE '%COVID-19, confirmed%' OR uraicu_text LIKE '%COVID-19, confirmed%'
@@ -157,40 +159,19 @@ INSERT INTO SAILWWMCCV.CCU002_04_COVID19_ALL_20220329
     AND daicu >= SAILWWMCCV.PARAM_CCU002_04_COVID_START_DT
     AND daicu <= SAILWWMCCV.PARAM_CCU002_04_COVID_END_DT;
 
--------------------------------------------------------------------------------------------------
--- Basic checks
-SELECT SOURCE, count(*), count(DISTINCT alf_e)
-FROM SAILWWMCCV.CCU002_04_COVID19_ALL_20220329
-WHERE covid19_status = 'Confirmed COVID19'
-GROUP BY SOURCE;
-
-SELECT count(*), count(DISTINCT alf_e)
-FROM SAILWWMCCV.CCU002_04_COVID19_ALL_20220329
-WHERE covid19_status = 'Confirmed COVID19';
-
-SELECT YEAR(record_date), count(*), count(DISTINCT alf_e)
-FROM SAILWWMCCV.CCU002_04_COVID19_ALL_20220329
-GROUP BY YEAR(record_date);
-
-SELECT max(record_date) FROM SAILWWMCCV.CCU002_04_COVID19_ALL_20220329 WHERE SOURCE = 'PEDW';
-
 -- ***********************************************************************************************
 -- COVID19 with hospitalisation
 -- ***********************************************************************************************
-CREATE TABLE SAILWWMCCV.CCU002_04_COVID19_HOSPITALISATION_20220329 (
+CREATE TABLE SAILWWMCCV.CCU002_04_COVID19_HOSPITALISATION_20220630 (
     alf_e                               bigint,
     covid19_confirmed_date              date,
-    covid19_pos_pcr_date                date,
-    covid19_hospital_admis_primary_date date,
-    covid19_hospitalisation_ccu002_01   char(30),
-    covid19_hospitalisation_ccu002_04   char(30)
+    covid19_hospitalisation             char(30)
     )
 DISTRIBUTE BY HASH(alf_e);
+--DROP TABLE SAILWWMCCV.CCU002_04_COVID19_HOSPITALISATION_20220630;
+--TRUNCATE TABLE SAILWWMCCV.CCU002_04_COVID19_HOSPITALISATION_20220630 IMMEDIATE;
 
---DROP TABLE SAILWWMCCV.CCU002_04_COVID19_HOSPITALISATION_20220329;
-TRUNCATE TABLE SAILWWMCCV.CCU002_04_COVID19_HOSPITALISATION_20220329 IMMEDIATE;
-
-INSERT INTO SAILWWMCCV.CCU002_04_COVID19_HOSPITALISATION_20220329 (alf_e, covid19_confirmed_date, covid19_hospitalisation_ccu002_01)
+INSERT INTO SAILWWMCCV.CCU002_04_COVID19_HOSPITALISATION_20220630 (alf_e, covid19_confirmed_date, covid19_hospitalisation)
     SELECT alf_e,
            min(record_date) AS covid19_confirmed_date,
            covid19_hospitalisation
@@ -199,12 +180,12 @@ INSERT INTO SAILWWMCCV.CCU002_04_COVID19_HOSPITALISATION_20220329 (alf_e, covid1
                  a.covid19_status,
                  b.covid19_hospitalisation,
                  b.first_admission_date
-          FROM SAILWWMCCV.CCU002_04_COVID19_ALL_20220329 a
+          FROM SAILWWMCCV.CCU002_04_COVID19_ALL_20220630 a
           LEFT JOIN (SELECT DISTINCT alf_e,
                             'hospitalised' AS covid19_hospitalisation,
                             days_between,
                             first_admission_date
-                     FROM (SELECT t1.alf_e,--------------------------------
+                     FROM (SELECT t1.alf_e,
                                   t1.first_admission_date,
                                   t2.first_covid_event,
                                   TIMESTAMPDIFF(16,TIMESTAMP(first_admission_date) - TIMESTAMP(first_covid_event)) AS days_between
@@ -212,7 +193,7 @@ INSERT INTO SAILWWMCCV.CCU002_04_COVID19_HOSPITALISATION_20220329 (alf_e, covid1
                                          min(record_date) AS first_admission_date
                                  FROM (SELECT alf_e,
                                               record_date
-                                       FROM SAILWWMCCV.CCU002_04_COVID19_ALL_20220329 a
+                                       FROM SAILWWMCCV.CCU002_04_COVID19_ALL_20220630 a
                                        WHERE source IN ('PEDW', 'ICNC', 'ICCD')
                                        AND covid19_status = 'Confirmed COVID19'
                                        AND primary_position = 1
@@ -223,14 +204,14 @@ INSERT INTO SAILWWMCCV.CCU002_04_COVID19_HOSPITALISATION_20220329 (alf_e, covid1
                                              min(record_date) AS first_covid_event
                                       FROM (SELECT alf_e,
                                                    record_date
-                                            FROM SAILWWMCCV.CCU002_04_COVID19_ALL_20220329 a
+                                            FROM SAILWWMCCV.CCU002_04_COVID19_ALL_20220630 a
                                             WHERE covid19_status = 'Confirmed COVID19'
                                            )
                                       GROUP BY alf_e
                                        ) t2
                            ON t1.alf_e = t2.alf_e
                            ORDER BY t2.first_covid_event
-                           )-------------------------------------------------
+                           )
                      WHERE days_between <= 28
                     ) b
           ON a.alf_e = b.alf_e
@@ -238,57 +219,6 @@ INSERT INTO SAILWWMCCV.CCU002_04_COVID19_HOSPITALISATION_20220329 (alf_e, covid1
           )
     GROUP BY alf_e, covid19_hospitalisation;
 
-
-UPDATE SAILWWMCCV.CCU002_04_COVID19_HOSPITALISATION_20220329
-SET covid19_hospitalisation_ccu002_01 = 'non-hospitalised'
-WHERE covid19_hospitalisation_ccu002_01 IS NULL;
-
--------------------------------------------------------------------------------------------------
--- First positive COVID PCR test
-UPDATE SAILWWMCCV.CCU002_04_COVID19_HOSPITALISATION_20220329 tgt
-SET tgt.covid19_pos_pcr_date = src.covid19_pos_pcr_date
-FROM (SELECT alf_e,
-             min(record_date) AS covid19_pos_pcr_date
-      FROM SAILWWMCCV.CCU002_04_COVID19_ALL_20220329 a
-      WHERE covid19_status = 'Confirmed COVID19'
-      AND source = 'PATD'
-      GROUP BY alf_e
-     ) src
-WHERE tgt.alf_e = src.alf_e
-
--------------------------------------------------------------------------------------------------
--- First COVID admission in primary position
-UPDATE SAILWWMCCV.CCU002_04_COVID19_HOSPITALISATION_20220329 tgt
-SET tgt.covid19_hospital_admis_primary_date = src.covid19_hospital_admis_primary_date
-FROM (SELECT alf_e,
-             min(record_date) AS covid19_hospital_admis_primary_date
-      FROM SAILWWMCCV.CCU002_04_COVID19_ALL_20220329 a
-      WHERE source IN ('PEDW', 'ICNC', 'ICCD')
-      AND covid19_status = 'Confirmed COVID19'
-      AND primary_position = 1
-      GROUP BY alf_e
-     ) src
-WHERE tgt.alf_e = src.alf_e;
-
--------------------------------------------------------------------------------------------------
--- COVID hospitalisation according to CCU002-04 protocol definition
-UPDATE SAILWWMCCV.CCU002_04_COVID19_HOSPITALISATION_20220329 tgt
-SET tgt.covid19_hospitalisation_ccu002_04 = CASE WHEN covid19_hospital_admis_primary_date IS NOT NULL OR
-                                                      THEN 'hospitalised'
-                                                 WHEN covid19_pos_pcr_date IS NOT NULL AND
-                                                      THEN 'non-hospitalised'
-                                                 ELSE NULL
-                                            END
-FROM (
-     ) src
-WHERE tgt.alf_e = src.alf_e;
-
--------------------------------------------------------------------------------------------------
--- Basic checks
-SELECT * FROM SAILWWMCCV.CCU002_04_COVID19_HOSPITALISATION_20220329;
-SELECT count(*), count(DISTINCT alf_e) FROM SAILWWMCCV.CCU002_04_COVID19_HOSPITALISATION_20220329;
-
-
-SELECT covid19_hospitalisation_ccu002_01, count(*), count(DISTINCT alf_e)
-FROM SAILWWMCCV.CCU002_04_COVID19_HOSPITALISATION_20220329
-GROUP BY covid19_hospitalisation_ccu002_01;
+UPDATE SAILWWMCCV.CCU002_04_COVID19_HOSPITALISATION_20220630
+SET covid19_hospitalisation = 'non-hospitalised'
+WHERE covid19_hospitalisation IS NULL;
