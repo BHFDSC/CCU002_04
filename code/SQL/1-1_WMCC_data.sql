@@ -1,17 +1,19 @@
  --************************************************************************************************
 -- Script:       1-1_WMCC_data.sql
 -- SAIL project: WMCC - Wales Multi-morbidity Cardiovascular COVID-19 UK (0911)
--- About:        Create all WMCC level data
+-- About:        Create curated data tables (WMCC tables)
 
 -- Author:       Hoda Abbasizanjani
 --               Health Data Research UK, Swansea University, 2021
 -- ***********************************************************************************************
 -- ***********************************************************************************************
--- Create WMCC level data
--- ***********************************************************************************************
--- PEDW
+-- Patient Episode Database for Wales (PEDW)
+-- https://web.www.healthdatagateway.org/dataset/4c33a5d2-164c-41d7-9797-dc2b008cc852
+--------------------------------------------------------------------------------------------------
+-- PEDW SPELL
+--------------------------------------------------------------------------------------------------
 CREATE TABLE SAILWWMCCV.WMCC_PEDW_SPELL LIKE SAILWMCCV.C19_COHORT_PEDW_SPELL;
-TRUNCATE TABLE SAILWWMCCV.WMCC_PEDW_SPELL IMMEDIATE;
+--TRUNCATE TABLE SAILWWMCCV.WMCC_PEDW_SPELL IMMEDIATE;
 
 INSERT INTO SAILWWMCCV.WMCC_PEDW_SPELL
     (SELECT *
@@ -29,9 +31,11 @@ WHERE alf_e IN (SELECT DISTINCT alf_e FROM SAILWMCCV.C19_COHORT20);
 UPDATE SAILWWMCCV.WMCC_PEDW_SPELL
 SET c19_cohort16 = 1
 WHERE alf_e IN (SELECT DISTINCT alf_e FROM SAILWMCCV.C19_COHORT16);
-------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------
+-- PEDW EPISODE
+--------------------------------------------------------------------------------------------------
 CREATE TABLE SAILWWMCCV.WMCC_PEDW_EPISODE LIKE SAILWMCCV.C19_COHORT_PEDW_EPISODE;
-TRUNCATE TABLE SAILWWMCCV.WMCC_PEDW_EPISODE IMMEDIATE;
+--TRUNCATE TABLE SAILWWMCCV.WMCC_PEDW_EPISODE IMMEDIATE;
 
 ALTER TABLE SAILWWMCCV.WMCC_PEDW_EPISODE ADD c19_cohort20 SMALLINT NULL;
 ALTER TABLE SAILWWMCCV.WMCC_PEDW_EPISODE ADD c19_cohort16 SMALLINT NULL;
@@ -41,14 +45,16 @@ INSERT INTO SAILWWMCCV.WMCC_PEDW_EPISODE
             s.c19_cohort20,
             s.c19_cohort16
      FROM SAILWWMCCV.WMCC_PEDW_SPELL s
-     LEFT JOIN SAILWMCCV.C19_COHORT_PEDW_EPISODE e
+     INNER JOIN SAILWMCCV.C19_COHORT_PEDW_EPISODE e
      ON s.prov_unit_cd = e.prov_unit_cd
      AND s.spell_num_e = e.spell_num_e
     );
 
-------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------
+-- PEDW DIAG
+--------------------------------------------------------------------------------------------------
 CREATE TABLE SAILWWMCCV.WMCC_PEDW_DIAG LIKE SAILWMCCV.C19_COHORT_PEDW_DIAG;
-TRUNCATE TABLE SAILWWMCCV.WMCC_PEDW_DIAG IMMEDIATE;
+--TRUNCATE TABLE SAILWWMCCV.WMCC_PEDW_DIAG IMMEDIATE;
 
 ALTER TABLE SAILWWMCCV.WMCC_PEDW_DIAG ADD c19_cohort20 SMALLINT NULL;
 ALTER TABLE SAILWWMCCV.WMCC_PEDW_DIAG ADD c19_cohort16 SMALLINT NULL;
@@ -58,16 +64,18 @@ INSERT INTO SAILWWMCCV.WMCC_PEDW_DIAG
                            e.c19_cohort20,
                            e.c19_cohort16
                     FROM SAILWWMCCV.WMCC_PEDW_EPISODE e
-                    LEFT JOIN SAILWMCCV.C19_COHORT_PEDW_DIAG d
+                    INNER JOIN SAILWMCCV.C19_COHORT_PEDW_DIAG d
                     ON e.prov_unit_cd = d.prov_unit_cd
                     AND e.spell_num_e = d.spell_num_e
                     AND e.epi_num = d.epi_num)
      WHERE diag_cd IS NOT null
     );
 
-------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------
+-- PEDW OPER
+--------------------------------------------------------------------------------------------------
 CREATE TABLE SAILWWMCCV.WMCC_PEDW_OPER LIKE SAILWMCCV.C19_COHORT_PEDW_OPER;
-TRUNCATE TABLE SAILWWMCCV.WMCC_PEDW_OPER IMMEDIATE;
+--TRUNCATE TABLE SAILWWMCCV.WMCC_PEDW_OPER IMMEDIATE;
 
 ALTER TABLE SAILWWMCCV.WMCC_PEDW_OPER ADD c19_cohort20 SMALLINT NULL;
 ALTER TABLE SAILWWMCCV.WMCC_PEDW_OPER ADD c19_cohort16 SMALLINT NULL;
@@ -77,16 +85,18 @@ INSERT INTO SAILWWMCCV.WMCC_PEDW_OPER
             e.c19_cohort20,
             e.c19_cohort16
      FROM SAILWWMCCV.WMCC_PEDW_EPISODE e
-     LEFT JOIN SAILWMCCV.C19_COHORT_PEDW_OPER o
+     INNER JOIN SAILWMCCV.C19_COHORT_PEDW_OPER o
      ON e.prov_unit_cd = o.prov_unit_cd
      AND e.spell_num_e = o.spell_num_e
      AND e.spell_num_e = o.spell_num_e
      WHERE o.oper_cd IS NOT null
     );
 
-------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------
+-- PEDW SUPER SPELL
+--------------------------------------------------------------------------------------------------
 CREATE TABLE SAILWWMCCV.WMCC_PEDW_SUPERSPELL LIKE SAILWMCCV.C19_COHORT_PEDW_SUPERSPELL;
-TRUNCATE TABLE SAILWWMCCV.WMCC_PEDW_SUPERSPELL IMMEDIATE;
+--TRUNCATE TABLE SAILWWMCCV.WMCC_PEDW_SUPERSPELL IMMEDIATE;
 
 ALTER TABLE SAILWWMCCV.WMCC_PEDW_SUPERSPELL ADD c19_cohort20 SMALLINT NULL;
 ALTER TABLE SAILWWMCCV.WMCC_PEDW_SUPERSPELL ADD c19_cohort16 SMALLINT NULL;
@@ -102,9 +112,13 @@ INSERT INTO SAILWWMCCV.WMCC_PEDW_SUPERSPELL
     );
 
 -- ***********************************************************************************************
--- Intensive care data
+-- Intensive Care National Audit & Research Centre (ICNARC)
+-- https://web.www.healthdatagateway.org/dataset/add6226b-0f21-439a-84a6-51dc26cdc425
+--------------------------------------------------------------------------------------------------
+-- ICNARC ALF
+--------------------------------------------------------------------------------------------------
 CREATE TABLE SAILWWMCCV.WMCC_ICNC_ICNARC_LINKAGE_ALF LIKE SAILWMCCV.C19_COHORT_ICNC_ICNARC_LINKAGE_ALF;
-TRUNCATE TABLE SAILWWMCCV.WMCC_ICNC_ICNARC_LINKAGE_ALF IMMEDIATE;
+--TRUNCATE TABLE SAILWWMCCV.WMCC_ICNC_ICNARC_LINKAGE_ALF IMMEDIATE;
 
 INSERT INTO SAILWWMCCV.WMCC_ICNC_ICNARC_LINKAGE_ALF
     (SELECT *
@@ -123,9 +137,11 @@ UPDATE SAILWWMCCV.WMCC_ICNC_ICNARC_LINKAGE_ALF
 SET c19_cohort16 = 1
 WHERE alf_e IN (SELECT DISTINCT alf_e FROM SAILWMCCV.C19_COHORT16);
 
-------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------
+-- ICNARC EVENTS
+--------------------------------------------------------------------------------------------------
 CREATE TABLE SAILWWMCCV.WMCC_ICNC_ICNARC_LINKAGE LIKE SAILWMCCV.C19_COHORT_ICNC_ICNARC_LINKAGE;
-TRUNCATE TABLE SAILWWMCCV.WMCC_ICNC_ICNARC_LINKAGE IMMEDIATE;
+--TRUNCATE TABLE SAILWWMCCV.WMCC_ICNC_ICNARC_LINKAGE IMMEDIATE;
 
 ALTER TABLE SAILWWMCCV.WMCC_ICNC_ICNARC_LINKAGE ADD c19_cohort20 SMALLINT NULL;
 ALTER TABLE SAILWWMCCV.WMCC_ICNC_ICNARC_LINKAGE ADD c19_cohort16 SMALLINT NULL;
@@ -140,9 +156,13 @@ INSERT INTO SAILWWMCCV.WMCC_ICNC_ICNARC_LINKAGE
     );
 
 -- ***********************************************************************************************
--- Outpatient data
+-- Out Patient Dataset for Wales (OPDW)
+-- https://web.www.healthdatagateway.org/dataset/d331159b-b286-4ab9-8b36-db39123ec229
+--------------------------------------------------------------------------------------------------
+-- OPDW 
+--------------------------------------------------------------------------------------------------
 CREATE TABLE SAILWWMCCV.WMCC_OPDW_OUTPATIENTS LIKE SAILWMCCV.C19_COHORT_OPDW_OUTPATIENTS;
-TRUNCATE TABLE SAILWWMCCV.WMCC_OPDW_OUTPATIENTS IMMEDIATE;
+--TRUNCATE TABLE SAILWWMCCV.WMCC_OPDW_OUTPATIENTS IMMEDIATE;
 
 INSERT INTO SAILWWMCCV.WMCC_OPDW_OUTPATIENTS
     (SELECT *
@@ -163,8 +183,10 @@ SET c19_cohort16 = 1
 WHERE alf_e IN (SELECT DISTINCT alf_e FROM SAILWMCCV.C19_COHORT16);
 
 --------------------------------------------------------------------------------------------------
+-- OPDW DIAG
+--------------------------------------------------------------------------------------------------
 CREATE TABLE SAILWWMCCV.WMCC_OPDW_OUTPATIENTS_DIAG LIKE SAILWMCCV.C19_COHORT_OPDW_OUTPATIENTS_DIAG;
-TRUNCATE TABLE SAILWWMCCV.WMCC_OPDW_OUTPATIENTS_DIAG IMMEDIATE;
+--TRUNCATE TABLE SAILWWMCCV.WMCC_OPDW_OUTPATIENTS_DIAG IMMEDIATE;
 
 ALTER TABLE SAILWWMCCV.WMCC_OPDW_OUTPATIENTS_DIAG ADD c19_cohort20 SMALLINT NULL;
 ALTER TABLE SAILWWMCCV.WMCC_OPDW_OUTPATIENTS_DIAG ADD c19_cohort16 SMALLINT NULL;
@@ -182,9 +204,11 @@ INSERT INTO SAILWWMCCV.WMCC_OPDW_OUTPATIENTS_DIAG
     );
 
 --------------------------------------------------------------------------------------------------
+-- OPDW OPER
+--------------------------------------------------------------------------------------------------
 CREATE TABLE SAILWWMCCV.WMCC_OPDW_OUTPATIENTS_OPER LIKE SAILWMCCV.C19_COHORT_OPDW_OUTPATIENTS_OPER;
-TRUNCATE TABLE SAILWWMCCV.WMCC_OPDW_OUTPATIENTS_OPER IMMEDIATE;
-DROP TABLE SAILWWMCCV.;
+--TRUNCATE TABLE SAILWWMCCV.WMCC_OPDW_OUTPATIENTS_OPER IMMEDIATE;
+
 ALTER TABLE SAILWWMCCV.WMCC_OPDW_OUTPATIENTS_OPER ADD c19_cohort20 SMALLINT NULL;
 ALTER TABLE SAILWWMCCV.WMCC_OPDW_OUTPATIENTS_OPER ADD c19_cohort16 SMALLINT NULL;
 
@@ -201,9 +225,13 @@ INSERT INTO SAILWWMCCV.WMCC_OPDW_OUTPATIENTS_OPER
     );
 
 -- ***********************************************************************************************
--- GP data
+-- Welsh Longitudinal General Practice (WLGP)
+-- https://web.www.healthdatagateway.org/dataset/33fc3ffd-aa4c-4a16-a32f-0c900aaea3d2
+--------------------------------------------------------------------------------------------------
+-- WLGP ALF
+--------------------------------------------------------------------------------------------------
 CREATE TABLE SAILWWMCCV.WMCC_WLGP_PATIENT_ALF_CLEANSED LIKE SAILWMCCV.C19_COHORT_WLGP_PATIENT_ALF_CLEANSED;
-TRUNCATE TABLE SAILWWMCCV.WMCC_WLGP_PATIENT_ALF_CLEANSED IMMEDIATE;
+--TRUNCATE TABLE SAILWWMCCV.WMCC_WLGP_PATIENT_ALF_CLEANSED IMMEDIATE;
 
 INSERT INTO SAILWWMCCV.WMCC_WLGP_PATIENT_ALF_CLEANSED
     (SELECT *
@@ -224,6 +252,8 @@ SET c19_cohort16 = 1
 WHERE alf_e IN (SELECT DISTINCT alf_e FROM SAILWMCCV.C19_COHORT16);
 
 ----------------------------------------------------------------------------------------------------
+-- WLGP EVENT
+----------------------------------------------------------------------------------------------------
 CREATE TABLE SAILWWMCCV.WMCC_WLGP_GP_EVENT_CLEANSED (
     alf_e  		      bigint,
     alf_sts_cd        char(2),
@@ -239,7 +269,7 @@ CREATE TABLE SAILWWMCCV.WMCC_WLGP_GP_EVENT_CLEANSED (
     sequence          int
     )
 DISTRIBUTE BY HASH(alf_e);
-TRUNCATE TABLE SAILWWMCCV.WMCC_WLGP_GP_EVENT_CLEANSED IMMEDIATE;
+--TRUNCATE TABLE SAILWWMCCV.WMCC_WLGP_GP_EVENT_CLEANSED IMMEDIATE;
 
 INSERT INTO SAILWWMCCV.WMCC_WLGP_GP_EVENT_CLEANSED
     (SELECT alf_e, alf_sts_cd, alf_mtch_pct, gndr_cd, wob, lsoa_cd,
@@ -260,7 +290,11 @@ SET c19_cohort16 = 1
 WHERE alf_e IN (SELECT DISTINCT alf_e FROM SAILWWMCCV.WMCC_WLGP_PATIENT_ALF_CLEANSED WHERE c19_cohort16 = 1);
 
 -- ***********************************************************************************************
+-- Welsh Demographic Service Dataset (WDSD)
+-- https://web.www.healthdatagateway.org/dataset/8a8a5e90-b0c6-4839-bcd2-c69e6e8dca6d
+--------------------------------------------------------------------------------------------------
 -- WDSD ADD
+--------------------------------------------------------------------------------------------------
 CREATE TABLE SAILWWMCCV.WMCC_WDSD_AR_PERS_ADD (
     alf_e  		        bigint,
     gndr_cd             char(1),
@@ -278,9 +312,7 @@ CREATE TABLE SAILWWMCCV.WMCC_WDSD_AR_PERS_ADD (
     avail_from_dt       date
     )
 DISTRIBUTE BY HASH(alf_e);
-
---DROP TABLE SAILWWMCCV.WMCC_WDSD_AR_PERS_ADD;
-TRUNCATE TABLE SAILWWMCCV.WMCC_WDSD_AR_PERS_ADD IMMEDIATE;
+--TRUNCATE TABLE SAILWWMCCV.WMCC_WDSD_AR_PERS_ADD IMMEDIATE;
 
 INSERT INTO SAILWWMCCV.WMCC_WDSD_AR_PERS_ADD
     (SELECT a.alf_e, a.gndr_cd, a.wob, a.dod, d.*
@@ -302,8 +334,9 @@ UPDATE SAILWWMCCV.WMCC_WDSD_AR_PERS_ADD
 SET c19_cohort16 = 1
 WHERE alf_e IN (SELECT DISTINCT alf_e FROM SAILWMCCV.C19_COHORT16);
 
------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------
 -- WDSD GP
+--------------------------------------------------------------------------------------------------
 CREATE TABLE SAILWWMCCV.WMCC_WDSD_AR_PERS_GP (
     alf_e  		        bigint,
     gndr_cd             char(1),
@@ -317,9 +350,7 @@ CREATE TABLE SAILWWMCCV.WMCC_WDSD_AR_PERS_GP (
     avail_from_dt       date
     )
 DISTRIBUTE BY HASH(alf_e);
-
---DROP TABLE SAILWWMCCV.WMCC_WDSD_AR_PERS_GP;
-TRUNCATE TABLE SAILWWMCCV.WMCC_WDSD_AR_PERS_GP IMMEDIATE;
+--TRUNCATE TABLE SAILWWMCCV.WMCC_WDSD_AR_PERS_GP IMMEDIATE;
 
 INSERT INTO SAILWWMCCV.WMCC_WDSD_AR_PERS_GP
     (SELECT a.alf_e, a.gndr_cd, a.wob, a.dod, g.*
@@ -342,9 +373,13 @@ SET c19_cohort16 = 1
 WHERE alf_e IN (SELECT DISTINCT alf_e FROM SAILWMCCV.C19_COHORT16);
 
 -- ***********************************************************************************************
--- COVID19 test data
+-- Pathology data COVID-19 Daily (PATD)
+-- https://web.www.healthdatagateway.org/dataset/f5f6d882-163d-4ef1-a53e-000fba409480
+--------------------------------------------------------------------------------------------------
+-- PATD LIMS ANTIBODYRESULTS
+--------------------------------------------------------------------------------------------------
 CREATE TABLE SAILWWMCCV.WMCC_PATD_DF_COVID_LIMS_ANTIBODYRESULTS LIKE SAILWMCCV.C19_COHORT_PATD_DF_COVID_LIMS_ANTIBODYRESULTS;
-TRUNCATE TABLE SAILWWMCCV.WMCC_PATD_DF_COVID_LIMS_ANTIBODYRESULTS IMMEDIATE;
+--TRUNCATE TABLE SAILWWMCCV.WMCC_PATD_DF_COVID_LIMS_ANTIBODYRESULTS IMMEDIATE;
 
 INSERT INTO SAILWWMCCV.WMCC_PATD_DF_COVID_LIMS_ANTIBODYRESULTS
     (SELECT *
@@ -353,8 +388,10 @@ INSERT INTO SAILWWMCCV.WMCC_PATD_DF_COVID_LIMS_ANTIBODYRESULTS
     );
 
 --------------------------------------------------------------------------------------------------
+-- PATD LIMS TESTRESULTS
+--------------------------------------------------------------------------------------------------
 CREATE TABLE SAILWWMCCV.WMCC_PATD_DF_COVID_LIMS_TESTRESULTS LIKE SAILWMCCV.C19_COHORT_PATD_DF_COVID_LIMS_TESTRESULTS;
-TRUNCATE TABLE SAILWWMCCV.WMCC_PATD_DF_COVID_LIMS_TESTRESULTS IMMEDIATE;
+--TRUNCATE TABLE SAILWWMCCV.WMCC_PATD_DF_COVID_LIMS_TESTRESULTS IMMEDIATE;
 
 INSERT INTO SAILWWMCCV.WMCC_PATD_DF_COVID_LIMS_TESTRESULTS
     (SELECT *
@@ -364,7 +401,9 @@ INSERT INTO SAILWWMCCV.WMCC_PATD_DF_COVID_LIMS_TESTRESULTS
 
 -- ***********************************************************************************************
 -- Create a table containing all COVID19 related deaths
+--------------------------------------------------------------------------------------------------
 CREATE TABLE SAILWWMCCV.WMCC_DEATH_COVID19 LIKE SAILWMCCV.C19_COHORT20_MORTALITY;
+--TRUNCATE TABLE SAILWWMCCV.WMCC_DEATH_COVID19 IMMEDIATE;
 
 INSERT INTO SAILWWMCCV.WMCC_DEATH_COVID19
     SELECT *
@@ -375,4 +414,3 @@ INSERT INTO SAILWWMCCV.WMCC_DEATH_COVID19
     OR covid_yn_underlying_or_secondary_qcovid = 'y'
     OR covid_yn_secondary = 'y';
 
-TRUNCATE TABLE SAILWWMCCV.WMCC_DEATH_COVID19 IMMEDIATE;
