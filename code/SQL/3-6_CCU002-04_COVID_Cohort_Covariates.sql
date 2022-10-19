@@ -38,7 +38,7 @@ CREATE TABLE SAILWWMCCV.CCU002_04_COVID_COHORT_COVARIATES_20220329 (
     ckd                                        smallint,
     liver_disease                              smallint,
     dementia                                   smallint,
-    bmi_obesity                                smallint,
+    bmi_obesity                                smallint,  -- Only "finding of obesity"
     bmi                                        decimal(31,8),
     obese_bmi                                  smallint,
     obesity                                    smallint,  -- bmi_obesity + obese_bmi
@@ -79,14 +79,18 @@ CREATE TABLE SAILWWMCCV.CCU002_04_COVID_COHORT_COVARIATES_20220329 (
     any_cvd                                    smallint,
     fracture                                   smallint,
     surgery                                    smallint,
+    covid_vaccination                          smallint,
+    covid_vaccination_first_dose_date          date,
     flu_pneumonia_infection                    smallint,
     flu_pneumonia_hospitalisation              smallint,
     flu_pneumonia_vaccination                  smallint
+    --consultation_rate                          int,
+    --unique_bnf_chapters                        int,
     )
 DISTRIBUTE BY HASH(alf_e);
 
 --DROP TABLE SAILWWMCCV.CCU002_04_COVID_COHORT_COVARIATES_20220329;
-TRUNCATE TABLE SAILWWMCCV.CCU002_04_COVID_COHORT_COVARIATES_20220329 IMMEDIATE;
+--TRUNCATE TABLE SAILWWMCCV.CCU002_04_COVID_COHORT_COVARIATES_20220329 IMMEDIATE;
 
 INSERT INTO SAILWWMCCV.CCU002_04_COVID_COHORT_COVARIATES_20220329 (alf_e, gndr_cd, wob, dod, gp_coverage_end_date)
     SELECT DISTINCT alf_e,
@@ -122,8 +126,7 @@ AND alf_e IN (SELECT DISTINCT alf_e
               WHERE event_dt >= SAILWWMCCV.PARAM_CCU002_04_COVID_START_DT - 3 month
               AND event_dt < SAILWWMCCV.PARAM_CCU002_04_COVID_START_DT);
 
-SELECT count(alf_e) FROM SAILWWMCCV.CCU002_04_COVID_COHORT_COVARIATES_20220329
-WHERE unique_medications IS NULL;
+
 -------------------------------------------------------------------------------------------------
 -- Charlson score
 -------------------------------------------------------------------------------------------------
@@ -391,6 +394,7 @@ FROM (SELECT DISTINCT alf_e
 WHERE tgt.alf_e = src.alf_e;
 
 --***********************************************************************************************
+-------------------------------------------------------------------------------------------------
 -- Hypertension
 -------------------------------------------------------------------------------------------------
 UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_COVARIATES_20220329 tgt
@@ -1146,6 +1150,9 @@ WHERE alf_e IN (-- PEDW
 UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_COVARIATES_20220329
 SET flu_pneumonia_vaccination = 1
 WHERE alf_e IN (SELECT alf_e
+                       --event_dt,
+                       --event_cd,
+                       --r.name
                 FROM SAILWWMCCV.WMCC_WLGP_GP_EVENT_CLEANSED g
                 JOIN (SELECT * FROM SAILWWMCCV.PHEN_READ_INFLUENZA_VACC WHERE is_latest = 1
                       UNION ALL
@@ -1167,3 +1174,55 @@ SELECT count(DISTINCT alf_e) FROM SAILWWMCCV.CCU002_04_COVID_COHORT_COVARIATES_2
 WHERE flu_pneumonia_vaccination = 1;
 -------------------------------------------------------------------------------------------------
 
+SELECT * FROM SAILWWMCCV.CCU002_04_COVID_COHORT_COVARIATES_20220329;
+
+SELECT count(*) FROM SAILWWMCCV.CCU002_04_COVID_COHORT_COVARIATES_20220329 WHERE fracture IS NOT NULL;
+-- ***********************************************************************************************
+-- Create a table containing all COVID vaccinations data for COVID cohort
+-- ***********************************************************************************************
+CREATE TABLE SAILWWMCCV.CCU002_04_COVID_COHORT_VACCINATION_20220718 (
+    alf_e                        bigint,
+    alf_has_bad_vacc_record      smallint,   -- Same as C19_COHORT20_RRDA_CVVD
+    vacc_date                    date,       -- Same as C19_COHORT20_RRDA_CVVD
+    vacc_name                    char(25),   -- Same as C19_COHORT20_RRDA_CVVD
+    vacc_dose_seq                char(2),    -- Same as C19_COHORT20_RRDA_CVVD
+    prs_priority_group_cd        char(5),    -- Same as C19_COHORT20_RRDA_CVVD
+    prs_priority_group_name      char(100)   -- Same as C19_COHORT20_RRDA_CVVD
+    )
+DISTRIBUTE BY HASH(alf_e);
+
+--DROP TABLE SAILWWMCCV.CCU002_04_COVID_COHORT_VACCINATION_20220718;
+--TRUNCATE TABLE SAILWWMCCV.CCU002_04_COVID_COHORT_VACCINATION_20220718 IMMEDIATE;
+
+-------------------------------------------------------------------------------------------------
+-- Add COVID vaccination records
+-------------------------------------------------------------------------------------------------
+INSERT INTO SAILWWMCCV.CCU002_04_COVID_COHORT_VACCINATION_20220718
+    SELECT alf_e,
+           alf_has_bad_vacc_record,
+           vacc_date,
+           vacc_name,
+           vacc_dose_seq,
+           prs_priority_group_cd,
+           prs_priority_group_name
+    FROM SAILWMCCV.C19_COHORT20_RRDA_CVVD_20220713
+    WHERE alf_e IN (SELECT DISTINCT alf_e
+                    FROM SAILWWMCCV.CCU002_04_COVID_COHORT_20220630)
+    AND vacc_date >= '2020-12-07' -- start of vaccination in Wales
+    AND vacc_date <= SAILWWMCCV.PARAM_CCU002_04_COVID_END_DT; --'2021-12-31'
+
+-------------------------------------------------------------------------------------------------
+-- Add a flag to covariates table for COVID vaccination
+-------------------------------------------------------------------------------------------------
+ALTER TABLE SAILWWMCCV.CCU002_04_COVID_COHORT_COVARIATES_20220329 ADD covid_vaccination SMALLINT NULL;
+ALTER TABLE SAILWWMCCV.CCU002_04_COVID_COHORT_COVARIATES_20220329 ADD covid_vaccination_first_dose_date date NULL;
+
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_COVARIATES_20220329 tgt
+SET covid_vaccination = 1,
+    tgt.covid_vaccination_first_dose_date = src.covid_vaccination_first_dose_date
+FROM (SELECT alf_e,
+             min(vacc_date) AS covid_vaccination_first_dose_date
+      FROM SAILWWMCCV.CCU002_04_COVID_COHORT_VACCINATION_20220718
+      WHERE vacc_dose_seq = '1'
+      GROUP BY alf_e) src
+WHERE tgt.alf_e = src.alf_e;
