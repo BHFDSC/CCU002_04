@@ -23,11 +23,13 @@ CREATE TABLE SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20220329 (
     code                 char(20),   -- ICD10 or Read code
     clinical_code        char(20),
     description          char(255),
-    primary_position     char(1)
+    primary_position     char(1),
+    flu                  char(1),
+    pneumonia            char(1)
     )
 DISTRIBUTE BY HASH(alf_e);
 --DROP TABLE SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20220329;
-TRUNCATE TABLE SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20220329 IMMEDIATE;
+--TRUNCATE TABLE SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20220329 IMMEDIATE;
 
 ------------------------------------------------------------------------------------------------
 -- Add PCR test results from WRRS
@@ -39,10 +41,12 @@ INSERT INTO SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20220329
            'WRRS test code' AS code,
            test_code AS clinical_code,
            test_name AS description,
-           NULL AS primary_position
+           NULL AS primary_position,
+           CASE WHEN test_code IN ('FLUAPCR', 'FLUBPCR') THEN 1 ELSE 0 END AS flu,
+           CASE WHEN test_code IN ('Mycoplasma pneumonia', 'MPCF', 'Streptococcus pneumo') THEN 1 ELSE 0 END AS pneumonia
     FROM SAILWWMCCV.PHEN_WRRS_RESPIRATORY_INFECTIONS
-    WHERE test_code IN ('FLUAPCR',             -- 'Influenza A PCR'
-                        'FLUBPCR',             -- 'Influenza B PCR'
+    WHERE test_code IN ('FLUAPCR','Influenza A','Influenzae A result','POCTINFARNA'  -- 'Influenza A PCR'
+                        'FLUBPCR','Influenza B','Influenzae B result''POCTINFBRNA'   -- 'Influenza B PCR'
                         'Mycoplasma pneumonia', -- 'Mycoplasma pneumoniae'
                         'MPCF',                 -- 'Mycoplasma pneumoniae'
                         'Streptococcus pneumo'  -- 'Streptococcus pneumoniae
@@ -63,7 +67,9 @@ INSERT INTO SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20220329
            'ICD10' AS code,
            icd10_cd AS clinical_code,
            icd10_cd_desc AS description,
-           primary_position
+           primary_position,
+           CASE WHEN icd10_cd_category IN ('Viral influenza') THEN 1 ELSE 0 END AS flu,
+           CASE WHEN icd10_cd_category IN ('Viral pneumonia', 'Bacterial pneumonia') THEN 1 ELSE 0 END AS pneumonia
     FROM SAILWWMCCV.PHEN_PEDW_RESPIRATORY_INFECTIONS
     WHERE alf_e IN (SELECT DISTINCT alf_e 
                     FROM SAILWWMCCV.CCU002_04_INCLUDED_PATIENTS_20220329
@@ -71,7 +77,7 @@ INSERT INTO SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20220329
     AND icd10_cd_category IN ('Viral influenza', 'Viral pneumonia', 'Bacterial pneumonia')
     AND admis_dt >= SAILWWMCCV.PARAM_CCU002_04_FLU_START_DT
     AND admis_dt <= SAILWWMCCV.PARAM_CCU002_04_FLU_END_DT;
-
+;
 -------------------------------------------------------------------------------------------------
 -- Add influenza & pneumonia related records from GP data
 INSERT INTO SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20220329
@@ -82,7 +88,9 @@ INSERT INTO SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20220329
            'Read code' AS code,
            event_cd AS clinical_code,
            event_cd_desc AS description,
-           NULL AS primary_position
+           NULL AS primary_position,
+           CASE WHEN (event_cd_desc LIKE '%influenza%' OR event_cd_desc LIKE '%Influenza%' OR event_cd IN ('4JU6.','4JU7.','4JU8.','XM0s0','Xa9J7','Hyu04')) THEN 1 ELSE 0 END AS flu,
+           CASE WHEN (event_cd_desc LIKE '%pneumonia%' OR event_cd_desc LIKE '%Pneumonia%' OR event_cd IN ('A521.','A7850','H2600')) THEN 1 ELSE 0 END AS pneumonia
     FROM SAILWWMCCV.PHEN_WLGP_RESPIRATORY_INFECTIONS
     WHERE alf_e IN (SELECT DISTINCT alf_e
                     FROM SAILWWMCCV.CCU002_04_INCLUDED_PATIENTS_20220329
@@ -103,7 +111,9 @@ INSERT INTO SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20220329
            'ICU admission with confirmed influenza or pneumonia' AS description,
            -- Only primary or ultimate primary reason for admission
            CASE WHEN raicu1_text LIKE '%pneumonia%' OR uraicu_text LIKE '%pneumonia%' OR raicu1_text LIKE '%influenza%' OR uraicu_text LIKE '%influenza%' THEN 1
-                ELSE NULL END AS primary_position
+                ELSE NULL END AS primary_position,
+           CASE WHEN (raicu1_text LIKE '%influenza%' OR raicu2_text LIKE '%influenza%' OR uraicu_text LIKE '%influenza%') THEN 1 ELSE 0 END AS flu,
+           CASE WHEN (raicu1_text LIKE '%pneumonia%' OR raicu2_text LIKE '%pneumonia%' OR uraicu_text LIKE '%pneumonia%') THEN 1 ELSE 0 END AS pneumonia
     FROM SAILWWMCCV.WMCC_ICNC_ICNARC_LINKAGE_ALF a
     INNER JOIN SAILWWMCCV.WMCC_ICNC_ICNARC_LINKAGE l
     ON a.system_id_e = l.system_id_e
@@ -115,12 +125,6 @@ INSERT INTO SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20220329
     AND daicu >= SAILWWMCCV.PARAM_CCU002_04_FLU_START_DT
     AND daicu <= SAILWWMCCV.PARAM_CCU002_04_FLU_END_DT;
 
-
-SELECT SOURCE, count(*), count(DISTINCT alf_e)
-FROM SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20220329
-GROUP BY SOURCE;
-
-SELECT max(record_date) FROM SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20220329 WHERE SOURCE = 'ICNC';
 -- ***********************************************************************************************
 -- Influenza & pneumonia with hospitalisation
 -- ***********************************************************************************************
@@ -134,7 +138,7 @@ CREATE TABLE SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_HOSPITALISATION_20220329 (
 DISTRIBUTE BY HASH(alf_e);
 
 --DROP TABLE SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_HOSPITALISATION_20220329;
-TRUNCATE TABLE SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_HOSPITALISATION_20220329 IMMEDIATE;
+--TRUNCATE TABLE SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_HOSPITALISATION_20220329 IMMEDIATE;
 
 INSERT INTO SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_HOSPITALISATION_20220329 (alf_e, flu_pneumonia_confirmed_date, flu_pneumonia_hospitalisation)
     SELECT alf_e,
@@ -188,7 +192,7 @@ SET flu_pneumonia_hospitalisation = 'non-hospitalised'
 WHERE flu_pneumonia_hospitalisation IS NULL;
 
 -------------------------------------------------------------------------------------------------
--- First positive COVID PCR test
+-- First positive flu PCR test
 UPDATE SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_HOSPITALISATION_20220329 tgt
 SET tgt.flu_pneumonia_pos_pcr_date = src.flu_pneumonia_pos_pcr_date
 FROM (SELECT alf_e,
@@ -201,7 +205,7 @@ FROM (SELECT alf_e,
 WHERE tgt.alf_e = src.alf_e
 
 -------------------------------------------------------------------------------------------------
--- First COVID admission in primary position
+-- First flu admission in primary position
 UPDATE SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_HOSPITALISATION_20220329 tgt
 SET tgt.flu_pneumonia_hospital_admis_primary_date = src.flu_pneumonia_hospital_admis_primary_date
 FROM (SELECT alf_e,
@@ -214,10 +218,3 @@ FROM (SELECT alf_e,
      ) src
 WHERE tgt.alf_e = src.alf_e;
 
--------------------------------------------------------------------------------------------------
--- Basic chacks
-SELECT flu_pneumonia_hospitalisation, count(*), count(DISTINCT alf_e)
-FROM SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_HOSPITALISATION_20220329
-GROUP BY flu_pneumonia_hospitalisation;
-
-SELECT * FROM SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_HOSPITALISATION_20220329;
