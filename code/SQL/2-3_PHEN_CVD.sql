@@ -38,9 +38,10 @@ CREATE TABLE SAILWWMCCV.PHEN_DEATH_CVD (
 DISTRIBUTE BY HASH(alf_e);
 
 --DROP TABLE SAILWWMCCV.PHEN_DEATH_CVD;
-TRUNCATE TABLE SAILWWMCCV.PHEN_DEATH_CVD IMMEDIATE;
+--TRUNCATE TABLE SAILWWMCCV.PHEN_DEATH_CVD IMMEDIATE;
 ----------------------------------------------------------------------------------------------
 --CVD deaths for C20 cohort using table C19_COHORT20_MORTALITY
+----------------------------------------------------------------------------------------------
 INSERT INTO SAILWWMCCV.PHEN_DEATH_CVD
     SELECT alf_e,
            wob,
@@ -181,6 +182,7 @@ INSERT INTO SAILWWMCCV.PHEN_DEATH_CVD
 
 ----------------------------------------------------------------------------------------------
 -- CVD deaths for C16 cohort using table C19_COHORT16_MORTALITY
+----------------------------------------------------------------------------------------------
 INSERT INTO SAILWWMCCV.PHEN_DEATH_CVD
     SELECT alf_e,
            wob,
@@ -320,12 +322,6 @@ INSERT INTO SAILWWMCCV.PHEN_DEATH_CVD
     WHERE is_latest = 1;
 
 
-SELECT * FROM SAILWWMCCV.PHEN_DEATH_CVD;
-SELECT count(*), count(DISTINCT alf_e) FROM SAILWWMCCV.PHEN_DEATH_CVD;
-
-SELECT count(*) FROM SAILWWMCCV.PHEN_DEATH_CVD WHERE c19_cohort16 = 1
-AND alf_e IN (SELECT DISTINCT alf_e FROM SAILWMCCV.C19_COHORT20_MORTALITY);
-
 -- ***********************************************************************************************
 -- Create a table containing all CVD outcomes in PEDW for C20 & C16 cohorts
 -- ***********************************************************************************************
@@ -360,8 +356,8 @@ CREATE TABLE SAILWWMCCV.PHEN_PEDW_CVD (
     )
 DISTRIBUTE BY HASH(alf_e);
 
--- DROP TABLE SAILWWMCCV.PHEN_PEDW_CVD;
-TRUNCATE TABLE SAILWWMCCV.PHEN_PEDW_CVD IMMEDIATE;
+--DROP TABLE SAILWWMCCV.PHEN_PEDW_CVD;
+--TRUNCATE TABLE SAILWWMCCV.PHEN_PEDW_CVD IMMEDIATE;
 
 INSERT INTO SAILWWMCCV.PHEN_PEDW_CVD (alf_e,prov_unit_cd,spell_num_e,epi_num,gndr_cd,record_order,admis_dt,
                                       admis_mthd_cd,admis_source_cd,admis_spec_cd,disch_dt,disch_mthd_cd,
@@ -397,10 +393,10 @@ INSERT INTO SAILWWMCCV.PHEN_PEDW_CVD (alf_e,prov_unit_cd,spell_num_e,epi_num,gnd
            s.c19_cohort20,
            s.c19_cohort16
     FROM SAILWWMCCV.WMCC_PEDW_SPELL s
-    LEFT JOIN SAILWWMCCV.WMCC_PEDW_EPISODE e
+    INNER JOIN SAILWWMCCV.WMCC_PEDW_EPISODE e
     ON s.prov_unit_cd = e.prov_unit_cd
     AND s.spell_num_e = e.spell_num_e
-    LEFT JOIN SAILWWMCCV.WMCC_PEDW_DIAG d
+    INNER JOIN SAILWWMCCV.WMCC_PEDW_DIAG d
     ON e.prov_unit_cd = d.prov_unit_cd
     AND e.spell_num_e = d.spell_num_e
     AND e.epi_num = d.epi_num
@@ -512,11 +508,7 @@ INSERT INTO SAILWWMCCV.PHEN_PEDW_CVD (alf_e,prov_unit_cd,spell_num_e,epi_num,gnd
          ) d
     ON (d.diag_cd_1234 = code OR d.diag_cd = code OR LEFT(d.diag_cd,3) = code);
 
-SELECT count(*), count(DISTINCT alf_e) FROM SAILWWMCCV.PHEN_PEDW_CVD;
-SELECT max(admis_dt) FROM SAILWWMCCV.PHEN_PEDW_CVD;
 
-SELECT YEAR(admis_dt), count(*) FROM SAILWWMCCV.PHEN_PEDW_CVD
-GROUP BY YEAR(admis_dt);
 -- ***********************************************************************************************
 -- Create a table containing all CVD outcomes in OPDW for C20 & C16 cohorts
 -- ***********************************************************************************************
@@ -543,7 +535,7 @@ CREATE TABLE SAILWWMCCV.PHEN_OPDW_CVD (
 DISTRIBUTE BY HASH(alf_e);
 
 --DROP TABLE SAILWWMCCV.PHEN_OPDW_CVD;
-TRUNCATE TABLE SAILWWMCCV.PHEN_OPDW_CVD IMMEDIATE;
+--TRUNCATE TABLE SAILWWMCCV.PHEN_OPDW_CVD IMMEDIATE;
 
 INSERT INTO SAILWWMCCV.PHEN_OPDW_CVD (alf_e,prov_unit_cd,case_rec_num_e,att_id_e,attend_dt,gndr_cd,
                                       record_order,priority_type_cd,outcome_cd,diag_cd_123,diag_cd,
@@ -568,7 +560,7 @@ INSERT INTO SAILWWMCCV.PHEN_OPDW_CVD (alf_e,prov_unit_cd,case_rec_num_e,att_id_e
            o.c19_cohort20,
            o.c19_cohort16
     FROM SAILWWMCCV.WMCC_OPDW_OUTPATIENTS o
-    LEFT JOIN SAILWWMCCV.WMCC_OPDW_OUTPATIENTS_DIAG d
+    INNER JOIN SAILWWMCCV.WMCC_OPDW_OUTPATIENTS_DIAG d
     ON o.prov_unit_cd = d.prov_unit_cd
     AND o.case_rec_num_e = d.case_rec_num_e
     AND o.att_id_e = d.att_id_e
@@ -681,8 +673,6 @@ INSERT INTO SAILWWMCCV.PHEN_OPDW_CVD (alf_e,prov_unit_cd,case_rec_num_e,att_id_e
          ) d
     ON CONCAT(diag_cd_123, diag_cd_4) = code OR diag_cd_123 = diag_cd_123;
 
-SELECT diag_cd, count(*)  FROM SAILWWMCCV.PHEN_OPDW_CVD
-GROUP BY diag_cd;
 
 -- ***********************************************************************************************
 -- Create a table containing all CVD outcomes in primary care data for C20 & C16 cohorts
@@ -706,7 +696,7 @@ CREATE TABLE SAILWWMCCV.PHEN_WLGP_CVD (
 DISTRIBUTE BY HASH(alf_e);
 
 -- DROP TABLE SAILWWMCCV.PHEN_WLGP_CVD;
-TRUNCATE TABLE SAILWWMCCV.PHEN_WLGP_CVD IMMEDIATE;
+--TRUNCATE TABLE SAILWWMCCV.PHEN_WLGP_CVD IMMEDIATE;
 
 INSERT INTO SAILWWMCCV.PHEN_WLGP_CVD (alf_e, wob, gndr_cd, prac_cd_e, record_order, event_dt, event_cd,
                                              event_val, outcome_readcode, outcome_name, outcome_term,
@@ -787,5 +777,3 @@ INSERT INTO SAILWWMCCV.PHEN_WLGP_CVD (alf_e, wob, gndr_cd, prac_cd_e, record_ord
          )
     ON event_cd = code;
 
-SELECT year(event_dt), count(*) FROM SAILWWMCCV.PHEN_WLGP_CVD
-GROUP BY year(event_dt);
