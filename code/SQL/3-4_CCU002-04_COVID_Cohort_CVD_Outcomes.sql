@@ -34,7 +34,7 @@ CREATE TABLE SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_ALL_20220329 (
 DISTRIBUTE BY HASH(alf_e);
 
 --DROP TABLE SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_ALL_20220329;
-TRUNCATE TABLE SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_ALL_20220329 IMMEDIATE;
+--TRUNCATE TABLE SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_ALL_20220329 IMMEDIATE;
 -----------------------------------------------------------------------------------------------
 -- CVD outcomes in Death data
 INSERT INTO SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_ALL_20220329
@@ -57,7 +57,6 @@ INSERT INTO SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_ALL_20220329
                 WHEN outcome_name = 'TCP' AND outcome_category = 'thrombocytopenia' THEN 'THROMBOCYTOPENIA'
                 WHEN outcome_name = 'LIFE_ARRHYTHM_CCU002' THEN 'LIFE_ARRHYTHM'
                 WHEN outcome_name = 'CARDIOMYOPATHY_CCU002' THEN 'CARDIOMYOPATHY'
-                -- additionals (not used in CCU002-04): DIC + ARTERY_DISSECT_CCU002
                 WHEN outcome_icd10 IN ('I710','I720','I721') THEN 'ARTERY_DISSECT'
                 WHEN outcome_name = 'ANGINA' AND outcome_category = 'Angina' THEN 'ANGINA'
                 WHEN outcome_name = 'ANGINA' AND outcome_category = 'Unstable angina' THEN 'UNSTABLE_ANGINA'
@@ -85,7 +84,7 @@ INSERT INTO SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_ALL_20220329
                   WHERE covid_cohort = 1)
     AND outcome_icd10 NOT IN ('O082', 'I252', 'I241', 'I670', 'I726') -- covariate only (VT_CCU002, AMI_CCU002, ARTERY_DISSECT_CCU002)
     AND outcome_name IN ('AMI_CCU002', -- AMI_covariate_only cases already excluded
-                         'STROKE_IS', -- Ischaemic stroke
+                         'STROKE_IS',  -- Ischaemic stroke
                          'STROKE_NOS', -- Unknown stroke
                          'STROKE_SPINAL', -- Spinal stroke
                          'RETINAL_INFARCTION', -- Retinal vascular occlusions
@@ -95,7 +94,7 @@ INSERT INTO SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_ALL_20220329
                                       -- 'DVT_pregnancy' (Thrombosis during pregnancy),'ICVT_pregnancy'  (venous thrombosis in pregnancy)
                          'DVT_ICVT',  --  Intracranial venous thrombosis
                          'DIC',
-                         'TCP', -- 'TTP', 'thrombocytopenia'
+                         'TCP',       -- 'TTP', 'thrombocytopenia'
                          'STROKE_HS', -- intracerebral hemorrhage(NOT 'STROKE_SAH_HS_CCU002')
                          'MESENTERIC_THROMBUS',
                          'ARTERY_DISSECT_CCU002',
@@ -103,7 +102,7 @@ INSERT INTO SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_ALL_20220329
                          'CARDIOMYOPATHY_CCU002',
                          'HF',
                          'ANGINA',
-                         'FRACTURE', -- lower limb fracture
+                         'FRACTURE',   -- lower limb fracture
                          'STROKE_SAH', -- (stroke, subarachnoid hemorrhage), NOT IN COMPOSITE EVENTS
                          'STROKE_TIA_CCU002',
                          'MYOCARDITIS',
@@ -130,13 +129,10 @@ INSERT INTO SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_ALL_20220329
                 WHEN outcome_name = 'VT_CCU002' AND outcome_category = 'DVT_pregnancy' THEN 'DVT_PREGNANCY'
                 WHEN outcome_name = 'VT_CCU002' AND outcome_category = 'ICVT_pregnancy' THEN 'ICVT_PREGNANCY'
                 WHEN outcome_name = 'VT_CCU002' AND outcome_category = 'portal_vein_thrombosis' THEN 'PORTAL_VEIN_THROMBOSIS'
-                -- DVT_ICVT
                 WHEN outcome_name = 'TCP' AND outcome_category = 'TTP' THEN 'TTP'
                 WHEN outcome_name = 'TCP' AND outcome_category = 'thrombocytopenia' THEN 'THROMBOCYTOPENIA'
                 WHEN outcome_name = 'LIFE_ARRHYTHM_CCU002' THEN 'LIFE_ARRHYTHM'
                 WHEN outcome_name = 'CARDIOMYOPATHY_CCU002' THEN 'CARDIOMYOPATHY'
-                --
-                -- additionals (not used in CCU002-04): DIC + ARTERY_DISSECT_CCU002
                 WHEN outcome_icd10 IN ('I710','I720','I721') THEN 'ARTERY_DISSECT'
                 WHEN outcome_name = 'ANGINA' AND outcome_category = 'Angina' THEN 'ANGINA'
                 WHEN outcome_name = 'ANGINA' AND outcome_category = 'Unstable angina' THEN 'UNSTABLE_ANGINA'
@@ -164,7 +160,7 @@ INSERT INTO SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_ALL_20220329
                   WHERE covid_cohort = 1)
     AND outcome_icd10 NOT IN ('O082', 'I252', 'I241', 'I670', 'I726') -- covariate only (VT_CCU002, AMI_CCU002, ARTERY_DISSECT_CCU002)
     AND outcome_name IN ('AMI_CCU002', -- AMI_covariate_only cases already excluded
-                         'STROKE_IS', -- Ischaemic stroke
+                         'STROKE_IS',  -- Ischaemic stroke
                          'STROKE_NOS', -- Unknown stroke
                          'STROKE_SPINAL', -- Spinal stroke
                          'RETINAL_INFARCTION', -- Retinal vascular occlusions
@@ -174,7 +170,7 @@ INSERT INTO SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_ALL_20220329
                                       -- 'DVT_pregnancy' (Thrombosis during pregnancy),'ICVT_pregnancy'  (venous thrombosis in pregnancy)
                          'DVT_ICVT',  --  Intracranial venous thrombosis
                          'DIC',
-                         'TCP', -- 'TTP', 'thrombocytopenia'
+                         'TCP',       -- 'TTP', 'thrombocytopenia'
                          'STROKE_HS', -- intracerebral hemorrhage(NOT 'STROKE_SAH_HS_CCU002')
                          'MESENTERIC_THROMBUS',
                          'ARTERY_DISSECT_CCU002',
@@ -182,7 +178,7 @@ INSERT INTO SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_ALL_20220329
                          'CARDIOMYOPATHY_CCU002',
                          'HF',
                          'ANGINA',
-                         'FRACTURE', -- lower limb fracture
+                         'FRACTURE',   -- lower limb fracture
                          'STROKE_SAH', -- (stroke, subarachnoid hemorrhage), NOT IN COMPOSITE EVENTS
                          'STROKE_TIA_CCU002',
                          'MYOCARDITIS',
@@ -300,20 +296,6 @@ SET fatal_event = 1
 WHERE TIMESTAMPDIFF(16,TIMESTAMP(dod) - TIMESTAMP(record_date)) <= 28
 OR source = 'Death';
 
------------------------------------------------------------------------------------------------
-SELECT * FROM SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_ALL_20220329
-ORDER BY name;
-
-SELECT source, count(*), count(DISTINCT alf_e)
-FROM SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_ALL_20220329
-GROUP BY source;
-
-SELECT source, count(*), count(DISTINCT alf_e)
-FROM SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_ALL_20220329
-WHERE name = 'FRACTURE'
-GROUP BY source;
-
-SELECT DISTINCT name FROM SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_ALL_20220329;
 -- ***********************************************************************************************
 -- Create a table containing first event per CVD category
 -- ***********************************************************************************************
@@ -334,7 +316,7 @@ CREATE TABLE SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_FIRST_20220329 (
 DISTRIBUTE BY HASH(alf_e);
 
 --DROP TABLE SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_FIRST_20220329;
-TRUNCATE TABLE SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_FIRST_20220329 IMMEDIATE;
+--TRUNCATE TABLE SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_FIRST_20220329 IMMEDIATE;
 
 INSERT INTO SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_FIRST_20220329
     SELECT * FROM (SELECT alf_e,
@@ -355,8 +337,6 @@ INSERT INTO SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_FIRST_20220329
     WHERE seq = 1
     ORDER BY alf_e;
 
-
-SELECT * FROM SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_FIRST_20220329;
 -- ***********************************************************************************************
 -- Create a table containing details of first combined event
 -- ***********************************************************************************************
@@ -375,7 +355,7 @@ CREATE TABLE SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_FIRST_COMPOSITE_2022
     )
 DISTRIBUTE BY HASH(alf_e);
 --DROP TABLE SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_FIRST_COMPOSITE_20220329;
-TRUNCATE TABLE SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_FIRST_COMPOSITE_20220329 IMMEDIATE;
+--TRUNCATE TABLE SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_FIRST_COMPOSITE_20220329 IMMEDIATE;
 
 
 INSERT INTO SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_FIRST_COMPOSITE_20220329
@@ -425,7 +405,7 @@ INSERT INTO SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_FIRST_COMPOSITE_20220
                                          FROM SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_ALL_20220329
                                          WHERE venous_event = 1
                                          )
-                                   WHERE seq =1
+                                   WHERE seq = 1
                                    ) venous_t
                  ON arterial_t.arterial_id = venous_t.venous_id
                 ) arterial_venous_t
@@ -439,18 +419,6 @@ INSERT INTO SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_FIRST_COMPOSITE_20220
                                  FROM SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_ALL_20220329
                                  WHERE haematological_event = 1
                                  )
-                            WHERE seq =1
+                            WHERE seq = 1
                             ) haem_t
            ON arterial_venous_t.arterial_venous_id = haem_t.haem_id;
-
------------------------------------------------------------------------------------------
--- Some checks
-SELECT * FROM
-SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_FIRST_COMPOSITE_20220329;
-
-SELECT count(*), count(DISTINCT alf_e)
-FROM SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_FIRST_COMPOSITE_20220329;
-
-SELECT count(*), count(DISTINCT alf_e)
-FROM SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_FIRST_COMPOSITE_20220329
-WHERE arterial_event IS NULL AND haematological_event IS NULL IS NULL AND venous_event IS NULL;
