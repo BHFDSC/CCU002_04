@@ -63,7 +63,7 @@ CREATE TABLE SAILWWMCCV.PHEN_PEDW_COVARIATES (
 DISTRIBUTE BY HASH(alf_e);
 
 --DROP TABLE SAILWWMCCV.PHEN_PEDW_COVARIATES;
-TRUNCATE TABLE SAILWWMCCV.PHEN_PEDW_COVARIATES IMMEDIATE;
+--TRUNCATE TABLE SAILWWMCCV.PHEN_PEDW_COVARIATES IMMEDIATE;
 
 INSERT INTO SAILWWMCCV.PHEN_PEDW_COVARIATES (alf_e, gndr_cd, admis_dt, e_diag_cd_1234, d_diag_cd_123,
                                              d_diag_cd_1234, icd10_cd, icd10_cd_category,icd10_cd_desc,
@@ -80,10 +80,10 @@ INSERT INTO SAILWWMCCV.PHEN_PEDW_COVARIATES (alf_e, gndr_cd, admis_dt, e_diag_cd
            s.c19_cohort20,
            s.c19_cohort16
     FROM SAILWWMCCV.WMCC_PEDW_SPELL s
-    LEFT JOIN SAILWWMCCV.WMCC_PEDW_EPISODE e
+    INNER JOIN SAILWWMCCV.WMCC_PEDW_EPISODE e
     ON s.prov_unit_cd = e.prov_unit_cd
     AND s.spell_num_e = e.spell_num_e
-    LEFT JOIN SAILWWMCCV.WMCC_PEDW_DIAG d
+    INNER JOIN SAILWWMCCV.WMCC_PEDW_DIAG d
     ON e.prov_unit_cd = d.prov_unit_cd
     AND e.spell_num_e = d.spell_num_e
     AND e.epi_num = d.epi_num
@@ -200,7 +200,6 @@ INSERT INTO SAILWWMCCV.PHEN_PEDW_COVARIATES (alf_e, gndr_cd, admis_dt, e_diag_cd
           ) c
     ON (LEFT(d.diag_cd,4) = c.code OR LEFT(d.diag_cd,3) = c.code);
 
-SELECT * FROM SAILWWMCCV.PHEN_PEDW_COVARIATES;
 
 -------------------------------------------------------------------------------------------------
 -- Hypertension
@@ -478,7 +477,7 @@ CREATE TABLE SAILWWMCCV.PHEN_WLGP_COVARIATES (
 DISTRIBUTE BY HASH(alf_e);
 
 --DROP TABLE SAILWWMCCV.PHEN_WLGP_COVARIATES;
-TRUNCATE TABLE SAILWWMCCV.PHEN_WLGP_COVARIATES IMMEDIATE;
+--TRUNCATE TABLE SAILWWMCCV.PHEN_WLGP_COVARIATES IMMEDIATE;
 
 INSERT INTO SAILWWMCCV.PHEN_WLGP_COVARIATES (alf_e, gndr_cd, wob, event_cd, event_val, event_dt,
                                              event_cd_desc, c19_cohort20, c19_cohort16)
