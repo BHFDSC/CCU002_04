@@ -39,10 +39,8 @@ CREATE TABLE SAILWWMCCV.PHEN_WDDS_COVARIATES (
 DISTRIBUTE BY HASH(alf_e);
 
 --DROP TABLE SAILWWMCCV.PHEN_WDDS_COVARIATES;
-TRUNCATE TABLE SAILWWMCCV.PHEN_WDDS_COVARIATES IMMEDIATE;
-SELECT count(*) FROM SAILWWMCCV.PHEN_WDDS_COVARIATES WHERE anticoagulant = 1;
+--TRUNCATE TABLE SAILWWMCCV.PHEN_WDDS_COVARIATES IMMEDIATE;
 
-SELECT min(dt_prescribed), max(dt_prescribed) FROM SAILWMCCV.C19_COHORT20_RRDA_WDDS;
 
 INSERT INTO SAILWWMCCV.PHEN_WDDS_COVARIATES (alf_e, bnf_combined, dmdcode_prescribed, dt_prescribed, prac_cd_e)
     SELECT alf_e, bnf_combined, dmdcode_prescribed, dt_prescribed, prac_cd_e
@@ -176,10 +174,6 @@ INSERT INTO SAILWWMCCV.PHEN_WDDS_COVARIATES (alf_e,bnf_combined,dmdcode_prescrib
                                  WHERE is_latest = 1)
     AND (alf_e IN (SELECT alf_e FROM SAILWMCCV.C19_COHORT20) OR alf_e IN (SELECT DISTINCT alf_e FROM SAILWMCCV.C19_COHORT16));
 
-SELECT count(*) FROM SAILWWMCCV.PHEN_WDDS_COVARIATES WHERE c19_cohort1 = 1 AND nsaids = 1;
-
-
-SELECT * FROM SAILWWMCCV.PHEN_WDDS_COVARIATES;
 --------------------------------------------------------------------------------------------------
 -- Add C20 & C16 flags
 ALTER TABLE SAILWWMCCV.PHEN_WDDS_COVARIATES ADD c19_cohort20 SMALLINT NULL;
