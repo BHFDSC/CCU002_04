@@ -1,7 +1,7 @@
 --************************************************************************************************
 -- Script:       2-1_PHEN_COVID19.sql
 -- SAIL project: WMCC - Wales Multi-morbidity Cardiovascular COVID-19 UK (0911)
--- About:        Creating COVID-19 related PHEN tables
+-- About:        Creating COVID-19 related phenotyped tables
 
 -- Author:       Hoda Abbasizanjani
 --               Health Data Research UK, Swansea University, 2021
@@ -30,7 +30,7 @@ CREATE TABLE SAILWWMCCV.PHEN_PATD_TESTRESULTS_COVID19 (
 DISTRIBUTE BY HASH(alf_e);
 
 --DROP TABLE SAILWWMCCV.PHEN_PATD_TESTRESULTS_COVID19;
-TRUNCATE TABLE SAILWWMCCV.PHEN_PATD_TESTRESULTS_COVID19 IMMEDIATE;
+--TRUNCATE TABLE SAILWWMCCV.PHEN_PATD_TESTRESULTS_COVID19 IMMEDIATE;
 
 INSERT INTO SAILWWMCCV.PHEN_PATD_TESTRESULTS_COVID19 (alf_e, test_order, spcm_collected_dt, spcm_received_dt, authorised_dt,
                                                       test_date_cleaned, spcm_cd, spcm_name, result_cd, result_name, covid19testresult,
@@ -54,28 +54,16 @@ INSERT INTO SAILWWMCCV.PHEN_PATD_TESTRESULTS_COVID19 (alf_e, test_order, spcm_co
             pat_type_cd,
             pat_type_desc
      FROM SAILWWMCCV.WMCC_PATD_DF_COVID_LIMS_TESTRESULTS
-     WHERE (testsetname = 'COVID19' OR testname = 'Coronavirus SARS CoV 2 PCR')
-     AND (year(spcm_collected_dt) IN (2020,2021,2022)
-          OR year(spcm_received_dt) IN (2020,2021,2022)
-          OR year(firstauthorised_dt) IN (2020,2021,2022)
-          )
-     ORDER BY alf_e, spcm_collected_dt);
+     --WHERE (testsetname = 'COVID19' OR testname = 'Coronavirus SARS CoV 2 PCR')
+     WHERE (year(spcm_collected_dt) IN (2020,2021,2022)
+            OR year(spcm_received_dt) IN (2020,2021,2022)
+            OR year(firstauthorised_dt) IN (2020,2021,2022)
+            )
+    ;
 
-SELECT min(spcm_collected_dt), max(spcm_collected_dt), max(spcm_received_dt)
-FROM SAILWWMCCV.PHEN_PATD_TESTRESULTS_COVID19;
-
-SELECT min(test_date_cleaned), max(test_date_cleaned)
-FROM SAILWWMCCV.PHEN_PATD_TESTRESULTS_COVID19;
-
-SELECT * FROM SAILWWMCCV.PHEN_PATD_TESTRESULTS_COVID19
-WHERE year(spcm_collected_dt) > 2021 OR year(spcm_received_dt) > 2021
-ORDER BY alf_e, test_order;
-
-SELECT count(*), count(DISTINCT alf_e)
-FROM SAILWWMCCV.PHEN_PATD_TESTRESULTS_COVID19
-WHERE covid19testresult = 'Positive';
 ------------------------------------------------------------------------------------------------
 -- Update first_positive_test_dt
+------------------------------------------------------------------------------------------------
 UPDATE SAILWWMCCV.PHEN_PATD_TESTRESULTS_COVID19 tgt
 SET tgt.first_positive_test_dt = src.first_positive_test_dt
 FROM (SELECT alf_e, min(test_date_cleaned) AS first_positive_test_dt
@@ -84,10 +72,8 @@ FROM (SELECT alf_e, min(test_date_cleaned) AS first_positive_test_dt
       GROUP BY alf_e) src
 WHERE tgt.alf_e = src.alf_e;
 
-SELECT count(*), count(DISTINCT alf_e) FROM SAILWWMCCV.PHEN_PATD_TESTRESULTS_COVID19 WHERE covid19testresult = 'Positive';
-SELECT count(DISTINCT alf_e) FROM SAILWWMCCV.PHEN_PATD_TESTRESULTS_COVID19 WHERE first_positive_test_dt IS NOT NULL;
 -- ***********************************************************************************************
--- Create a table containing all COVID19 related records in hospital data
+-- Create a table containing all COVID19 related records in hospital episode data
 -- ***********************************************************************************************
 CREATE TABLE SAILWWMCCV.PHEN_PEDW_COVID19 (
     alf_e                      bigint,
@@ -115,7 +101,7 @@ CREATE TABLE SAILWWMCCV.PHEN_PEDW_COVID19 (
 DISTRIBUTE BY HASH(alf_e);
 
 --DROP TABLE SAILWWMCCV.PHEN_PEDW_COVID19;
-TRUNCATE TABLE SAILWWMCCV.PHEN_PEDW_COVID19 IMMEDIATE;
+--TRUNCATE TABLE SAILWWMCCV.PHEN_PEDW_COVID19 IMMEDIATE;
 
 
 INSERT INTO SAILWWMCCV.PHEN_PEDW_COVID19 (alf_e,prov_unit_cd,spell_num_e,epi_num,record_order,admis_dt,
@@ -145,10 +131,10 @@ INSERT INTO SAILWWMCCV.PHEN_PEDW_COVID19 (alf_e,prov_unit_cd,spell_num_e,epi_num
            d.diag_cd,
            c.category
     FROM SAILWWMCCV.WMCC_PEDW_SPELL s
-    LEFT JOIN SAILWWMCCV.WMCC_PEDW_EPISODE e
+    INNER JOIN SAILWWMCCV.WMCC_PEDW_EPISODE e
     ON s.prov_unit_cd = e.prov_unit_cd
     AND s.spell_num_e = e.spell_num_e
-    LEFT JOIN SAILWWMCCV.WMCC_PEDW_DIAG d
+    INNER JOIN SAILWWMCCV.WMCC_PEDW_DIAG d
     ON e.prov_unit_cd = d.prov_unit_cd
     AND e.spell_num_e = d.spell_num_e
     AND e.epi_num = d.epi_num
@@ -157,16 +143,7 @@ INSERT INTO SAILWWMCCV.PHEN_PEDW_COVID19 (alf_e,prov_unit_cd,spell_num_e,epi_num
     WHERE s.admis_yr >= 2020
     AND s.admis_yr <= 2022
     AND c.is_latest = 1
-    ORDER BY s.alf_e, s.admis_dt, e.epi_str_dt;
-
-SELECT max(diag_num) FROM SAILWMCCV.C19_COHORT_PEDW_DIAG;--14
-
-SELECT alf_e, epi_num, admis_dt FROM SAILWWMCCV.PHEN_PEDW_COVID19;
-
-SELECT * FROM SAILWWMCCV.PHEN_ICD10_COVID19;
-SELECT YEAR(admis_dt), MONTH(admis_dt), count(DISTINCT alf_e) FROM SAILWWMCCV.PHEN_PEDW_COVID19 
-WHERE diag_cd_categry = 'Confirmed'
-GROUP BY YEAR(admis_dt), MONTH(admis_dt);
+;
 
 -- ***********************************************************************************************
 -- Create a table containing all COVID19 related records in GP data
@@ -187,7 +164,7 @@ CREATE TABLE SAILWWMCCV.PHEN_WLGP_COVID19 (
 DISTRIBUTE BY HASH(alf_e);
 
 --DROP TABLE SAILWWMCCV.PHEN_WLGP_COVID19;
-TRUNCATE TABLE SAILWWMCCV.PHEN_WLGP_COVID19 IMMEDIATE;
+--TRUNCATE TABLE SAILWWMCCV.PHEN_WLGP_COVID19 IMMEDIATE;
 
 INSERT INTO SAILWWMCCV.PHEN_WLGP_COVID19 (alf_e, wob, gndr_cd, record_order, event_dt, event_cd,
                                              event_cd_description, event_cd_category, event_val, prac_cd_e)
@@ -202,10 +179,9 @@ INSERT INTO SAILWWMCCV.PHEN_WLGP_COVID19 (alf_e, wob, gndr_cd, record_order, eve
            event_val,
            prac_cd_e
     FROM SAILWWMCCV.WMCC_WLGP_GP_EVENT_CLEANSED g
-    JOIN SAILWWMCCV.PHEN_READ_COVID19 r
+    INNER JOIN SAILWWMCCV.PHEN_READ_COVID19 r
     ON g.event_cd = r.code
     WHERE event_dt >= '2020-01-01'
     AND YEAR(event_dt) <= 2022
     AND r.is_latest = 1;
 
-SELECT *  FROM SAILWWMCCV.PHEN_WLGP_COVID19 ORDER BY alf_e, record_order;
