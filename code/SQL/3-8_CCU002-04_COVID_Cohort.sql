@@ -12,7 +12,7 @@
 CREATE OR REPLACE VARIABLE SAILWWMCCV.PARAM_CCU002_04_COVID_START_DT DATE DEFAULT '2020-01-01';
 CREATE OR REPLACE VARIABLE SAILWWMCCV.PARAM_CCU002_04_COVID_END_DT DATE DEFAULT '2021-12-31';
 -- ***********************************************************************************************
-CREATE TABLE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 (
+CREATE TABLE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 (
     alf_e                                    bigint,
     wob                                      date,
     death_date                               date,
@@ -25,7 +25,6 @@ CREATE TABLE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 (
     -- Exposure --------------------------------
     exp_confirmed_covid19_date               date,
     exp_confirmed_covid_phenotype_ccu002_01  char(30),
-    exp_confirmed_covid_phenotype_ccu002_04  char(30),
     coinfection_flu_pneumonia                smallint,
     -- Comparison group ------------------------
     com_flu_pneumonia_infection              smallint,
@@ -63,7 +62,8 @@ CREATE TABLE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 (
     out_stroke_isch                          date,
     out_stroke_sah_hs                        date,
     -- Combined outcomes -----------------------
-    out_arterial_event                       date,
+    out_arterial_event                       date, -- Based on CCU002-04 protocol
+    out_arterial_event_v2                    date, -- Based on CCU002-01 protocol
     out_venous_event                         date,
     out_haematological_event                 date,
     -- Covariates -------------------------------
@@ -126,14 +126,17 @@ CREATE TABLE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 (
     cov_bp_lowering_meds                     smallint,
     cov_anticoagulation_meds                 smallint,
     cov_cocp_meds                            smallint,
-    cov_hrt_meds                             smallint
+    cov_hrt_meds                             smallint,
+    cov_covid_vaccination                    smallint,
+    cov_covid_vaccination_first_dose_date    date
     )
 DISTRIBUTE BY HASH(alf_e);
 
---DROP TABLE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329;
---TRUNCATE TABLE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 IMMEDIATE;
 
-INSERT INTO SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 (alf_e, cov_sex, wob, death_date, cov_age, lsoa2011, cov_deprivation,
+--DROP TABLE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630;
+--TRUNCATE TABLE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 IMMEDIATE;
+
+INSERT INTO SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 (alf_e, cov_sex, wob, death_date, cov_age, lsoa2011, cov_deprivation,
                                                         rural_urban, gp_coverage_end_date, care_home)
     SELECT alf_e,
            gndr_cd,
@@ -149,45 +152,40 @@ INSERT INTO SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 (alf_e, cov_sex, wob, dea
     FROM SAILWWMCCV.CCU002_04_INCLUDED_PATIENTS_20220329
     WHERE covid_cohort = 1;
 
-SELECT * FROM SAILWWMCCV.CCU002_04_COVID_COHORT_20220329;
-
 -- ***********************************************************************************************
 -- Determine lost to follow up cases
 -------------------------------------------------------------------------------------------------
 -- People who died within study period
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630
 SET lost_to_followup = 1,
     lost_to_followup_date = death_date
 WHERE death_date IS NOT NULL
 AND death_date <= SAILWWMCCV.PARAM_CCU002_04_COVID_END_DT;
 
 -- People with no GP registeration
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630
 SET lost_to_followup = 1,
     lost_to_followup_date = NULL
 WHERE gp_coverage_end_date IS NULL;
 
 -- People whose GP registeration date ends before study start date
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630
 SET lost_to_followup = 1,
     lost_to_followup_date = gp_coverage_end_date
 WHERE gp_coverage_end_date < SAILWWMCCV.PARAM_CCU002_04_COVID_START_DT;
 
 -- People who moved out of Wales within study period
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630
 SET lost_to_followup = 1,
     lost_to_followup_date = gp_coverage_end_date
 WHERE gp_coverage_end_date >= SAILWWMCCV.PARAM_CCU002_04_COVID_START_DT
 AND gp_coverage_end_date < (SELECT max(cohort_end_date) FROM SAILWMCCV.C19_COHORT20);
 
 
-SELECT count(DISTINCT alf_e) FROM SAILWWMCCV.CCU002_04_COVID_COHORT_20220329
-WHERE lost_to_followup_date IS NULL;
-
 -- ***********************************************************************************************
 -- Update covariates using SAILWWMCCV.CCU002_04_COVID_COHORT_COVARIATES
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.cov_region                          = 'Wales',
     tgt.cov_charlson_score_v1               = src.charlson_score_v1,
     tgt.cov_charlson_score_v2               = src.charlson_score_v2,
@@ -247,43 +245,48 @@ SET tgt.cov_region                          = 'Wales',
 FROM SAILWWMCCV.CCU002_04_COVID_COHORT_COVARIATES_20220329 src
 WHERE tgt.alf_e = src.alf_e;
 
-
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329
+-------------------------------------------------------------------------------------------------
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630
 SET cov_ever_pe_vt = 1
 WHERE cov_ever_dvt_icvt = 1 OR cov_ever_pe_vt = 1;
+
+-------------------------------------------------------------------------------------------------
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
+SET tgt.cov_covid_vaccination = src.covid_vaccination,
+    tgt.cov_covid_vaccination_first_dose_date = src.covid_vaccination_first_dose_date
+FROM SAILWWMCCV.CCU002_04_COVID_COHORT_COVARIATES_20220329 src
+WHERE tgt.alf_e = src.alf_e;
 
 -- ***********************************************************************************************
 -- Add ethnicity using SAILWWMCCV.WMCC_COMB_ETHN_EHRD
 -- ONS categories ('White', 'Mixed', 'Asian', 'Black', 'Other')
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.cov_ethnicity = src.ec_ons_desc
 FROM SAILWWMCCV.WMCC_COMB_ETHN_EHRD src
 WHERE tgt.alf_e = src.alf_e;
 
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630
 SET cov_ethnicity = 'Missing'
 WHERE cov_ethnicity IS NULL;
 
 -- ***********************************************************************************************
 -- Update exposure using SAILWWMCCV.CCU002_04_COVID19_HOSPITALISATION
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.exp_confirmed_covid19_date = src.covid19_confirmed_date,
-    tgt.exp_confirmed_covid_phenotype_ccu002_01 = src.covid19_hospitalisation_ccu002_01,
-    tgt.exp_confirmed_covid_phenotype_ccu002_04 = src.covid19_hospitalisation_ccu002_04
-FROM SAILWWMCCV.CCU002_04_COVID19_HOSPITALISATION_20220329 src
+    tgt.exp_confirmed_covid_phenotype_ccu002_01 = src.covid19_hospitalisation_ccu002_01
+FROM SAILWWMCCV.CCU002_04_COVID19_HOSPITALISATION_20220630 src
 WHERE tgt.alf_e = src.alf_e;
 
 
 -- ***********************************************************************************************
 -- Determine comparison group
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET com_flu_pneumonia_infection = 1
 WHERE alf_e IN (-- PEDW
                 SELECT alf_e
-                       --admis_dt AS record_date
                 FROM SAILWWMCCV.PHEN_PEDW_RESPIRATORY_INFECTIONS
                 WHERE icd10_cd_category IN ('Viral influenza', 'Viral pneumonia', 'Bacterial pneumonia')
                 AND admis_dt >= SAILWWMCCV.PARAM_CCU002_04_COVID_START_DT
@@ -291,7 +294,6 @@ WHERE alf_e IN (-- PEDW
                 UNION ALL
                 -- ICNARC
                 SELECT alf_e
-                       --daicu AS record_date
                 FROM SAILWWMCCV.WMCC_ICNC_ICNARC_LINKAGE_ALF a
                 INNER JOIN SAILWWMCCV.WMCC_ICNC_ICNARC_LINKAGE l
                 ON a.system_id_e = l.system_id_e
@@ -303,37 +305,32 @@ WHERE alf_e IN (-- PEDW
                 UNION ALL
                 -- WLGP
                 SELECT alf_e
-                       --event_dt AS record_date
                 FROM SAILWWMCCV.PHEN_WLGP_RESPIRATORY_INFECTIONS
                 WHERE event_dt >= SAILWWMCCV.PARAM_CCU002_04_COVID_START_DT
                 AND event_dt <= SAILWWMCCV.PARAM_CCU002_04_COVID_END_DT
                 UNION ALL
                 -- WRRS
                 SELECT alf_e
-                       --test_collected_date AS record_date
                 FROM SAILWWMCCV.PHEN_WRRS_RESPIRATORY_INFECTIONS
                 WHERE test_code IN ('FLUAPCR',               -- 'Influenza A PCR'
                                     'FLUBPCR',               -- 'Influenza B PCR'
                                     'Mycoplasma pneumonia',  -- 'Mycoplasma pneumoniae'
                                     'MPCF',                  -- 'Mycoplasma pneumoniae'
-                                     'Streptococcus pneumo'  -- 'Streptococcus pneumoniae,
+                                    'Streptococcus pneumo'  -- 'Streptococcus pneumoniae,
                                     )
                  AND test_collected_date >= SAILWWMCCV.PARAM_CCU002_04_COVID_START_DT
                  AND test_collected_date <= SAILWWMCCV.PARAM_CCU002_04_COVID_END_DT
                 );
 
 
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630
 SET com_non_covid_flu_pneumonia_infection = 1
 WHERE exp_confirmed_covid19_date IS NULL AND com_flu_pneumonia_infection IS NULL;
 
-SELECT count(DISTINCT alf_e) FROM SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 WHERE com_non_covid_flu_pneumonia_infection = 1;
 -- ***********************************************************************************************
 -- Update outcomes using SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_FIRST
 -------------------------------------------------------------------------------------------------
-SELECT DISTINCT name FROM SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_FIRST_20220329;
--------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.out_ami = src.record_date
 FROM (SELECT alf_e,
              record_date
@@ -341,7 +338,7 @@ FROM (SELECT alf_e,
       WHERE name = 'AMI') src
 WHERE tgt.alf_e = src.alf_e;
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.out_artery_dissect = src.record_date
 FROM (SELECT alf_e,
              record_date
@@ -349,7 +346,7 @@ FROM (SELECT alf_e,
       WHERE name = 'ARTERY_DISSECT') src
 WHERE tgt.alf_e = src.alf_e;
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.out_other_arterial_embolism = src.record_date
 FROM (SELECT alf_e,
              record_date
@@ -357,7 +354,7 @@ FROM (SELECT alf_e,
       WHERE name = 'ARTERIAL_EMBOLISM_OTHR') src
 WHERE tgt.alf_e = src.alf_e;
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.out_angina = src.record_date
 FROM (SELECT alf_e,
              record_date
@@ -365,7 +362,7 @@ FROM (SELECT alf_e,
       WHERE name = 'ANGINA') src
 WHERE tgt.alf_e = src.alf_e;
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.out_unstable_angina = src.record_date
 FROM (SELECT alf_e,
              record_date
@@ -373,7 +370,7 @@ FROM (SELECT alf_e,
       WHERE name = 'UNSTABLE_ANGINA') src
 WHERE tgt.alf_e = src.alf_e;
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.out_cardiomyopathy = src.record_date
 FROM (SELECT alf_e,
              record_date
@@ -381,7 +378,7 @@ FROM (SELECT alf_e,
       WHERE name = 'CARDIOMYOPATHY') src
 WHERE tgt.alf_e = src.alf_e;
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.out_dic = src.record_date
 FROM (SELECT alf_e,
              record_date
@@ -389,7 +386,7 @@ FROM (SELECT alf_e,
       WHERE name = 'DIC') src
 WHERE tgt.alf_e = src.alf_e;
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.out_icvt_pregnancy = src.record_date
 FROM (SELECT alf_e,
              record_date
@@ -397,7 +394,7 @@ FROM (SELECT alf_e,
       WHERE name = 'ICVT_PREGNANCY') src
 WHERE tgt.alf_e = src.alf_e;
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.out_dvt_icvt = src.record_date
 FROM (SELECT alf_e,
              min(record_date) AS record_date
@@ -405,10 +402,8 @@ FROM (SELECT alf_e,
       WHERE name IN ('DVT_ICVT', 'ICVT_PREGNANCY')
       GROUP BY alf_e) src
 WHERE tgt.alf_e = src.alf_e;
-
-SELECT count(*) FROM SAILWWMCCV.CCU002_04_COVID_COHORT_20220329  WHERE out_dvt_icvt IS NOT NULL;
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.out_dvt_pregnancy = src.record_date
 FROM (SELECT alf_e,
              record_date
@@ -416,7 +411,7 @@ FROM (SELECT alf_e,
       WHERE name = 'DVT_PREGNANCY') src
 WHERE tgt.alf_e = src.alf_e;
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.out_dvt_dvt = src.record_date
 FROM (SELECT alf_e,
              min(record_date) AS record_date
@@ -424,10 +419,8 @@ FROM (SELECT alf_e,
       WHERE name IN ('DVT_DVT', 'DVT_PREGNANCY')
       GROUP BY alf_e) src
 WHERE tgt.alf_e = src.alf_e;
-
-SELECT count(*) FROM SAILWWMCCV.CCU002_04_COVID_COHORT_20220329  WHERE out_dvt_dvt IS NOT NULL;
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.out_other_dvt = src.record_date
 FROM (SELECT alf_e,
              record_date
@@ -435,7 +428,7 @@ FROM (SELECT alf_e,
       WHERE name = 'OTHER_DVT') src
 WHERE tgt.alf_e = src.alf_e;
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.out_fracture = src.record_date
 FROM (SELECT alf_e,
              record_date
@@ -443,7 +436,7 @@ FROM (SELECT alf_e,
       WHERE name = 'FRACTURE') src
 WHERE tgt.alf_e = src.alf_e;
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.out_hf = src.record_date
 FROM (SELECT alf_e,
              record_date
@@ -451,7 +444,7 @@ FROM (SELECT alf_e,
       WHERE name = 'HF') src
 WHERE tgt.alf_e = src.alf_e;
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.out_life_arrhythmia = src.record_date
 FROM (SELECT alf_e,
              record_date
@@ -459,7 +452,7 @@ FROM (SELECT alf_e,
       WHERE name = 'LIFE_ARRHYTHM') src
 WHERE tgt.alf_e = src.alf_e;
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.out_mesenteric_thrombus = src.record_date
 FROM (SELECT alf_e,
              record_date
@@ -467,7 +460,7 @@ FROM (SELECT alf_e,
       WHERE name = 'MESENTERIC_THROMBUS') src
 WHERE tgt.alf_e = src.alf_e;
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.out_myocarditis = src.record_date
 FROM (SELECT alf_e,
              record_date
@@ -475,7 +468,7 @@ FROM (SELECT alf_e,
       WHERE name = 'MYOCARDITIS') src
 WHERE tgt.alf_e = src.alf_e;
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.out_pe = src.record_date
 FROM (SELECT alf_e,
              record_date
@@ -483,7 +476,7 @@ FROM (SELECT alf_e,
       WHERE name = 'PE') src
 WHERE tgt.alf_e = src.alf_e;
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.out_pericarditis = src.record_date
 FROM (SELECT alf_e,
              record_date
@@ -491,7 +484,7 @@ FROM (SELECT alf_e,
       WHERE name = 'PERICARDITIS') src
 WHERE tgt.alf_e = src.alf_e;
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.out_portal_vein_thrombosis = src.record_date
 FROM (SELECT alf_e,
              record_date
@@ -499,7 +492,7 @@ FROM (SELECT alf_e,
       WHERE name = 'PORTAL_VEIN_THROMBOSIS') src
 WHERE tgt.alf_e = src.alf_e;
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.out_retinal_infarction = src.record_date
 FROM (SELECT alf_e,
              record_date
@@ -507,7 +500,7 @@ FROM (SELECT alf_e,
       WHERE name = 'RETINAL_INFARCTION') src
 WHERE tgt.alf_e = src.alf_e;
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.out_thrombocytopenia = src.record_date
 FROM (SELECT alf_e,
              record_date
@@ -515,7 +508,7 @@ FROM (SELECT alf_e,
       WHERE name = 'THROMBOCYTOPENIA') src
 WHERE tgt.alf_e = src.alf_e;
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.out_ttp = src.record_date
 FROM (SELECT alf_e,
              record_date
@@ -523,7 +516,7 @@ FROM (SELECT alf_e,
       WHERE name = 'TTP') src
 WHERE tgt.alf_e = src.alf_e;
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.out_stroke_sah = src.record_date
 FROM (SELECT alf_e,
              record_date
@@ -531,7 +524,7 @@ FROM (SELECT alf_e,
       WHERE name = 'STROKE_SAH') src
 WHERE tgt.alf_e = src.alf_e;
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.out_stroke_tia = src.record_date
 FROM (SELECT alf_e,
              record_date
@@ -539,7 +532,7 @@ FROM (SELECT alf_e,
       WHERE name = 'STROKE_TIA') src
 WHERE tgt.alf_e = src.alf_e;
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.out_stroke_spinal = src.record_date
 FROM (SELECT alf_e,
              record_date
@@ -547,7 +540,7 @@ FROM (SELECT alf_e,
       WHERE name = 'STROKE_SPINAL') src
 WHERE tgt.alf_e = src.alf_e;
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.out_stroke_hs = src.record_date
 FROM (SELECT alf_e,
              record_date
@@ -555,7 +548,7 @@ FROM (SELECT alf_e,
       WHERE name = 'STROKE_HS') src
 WHERE tgt.alf_e = src.alf_e;
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.out_stroke_is = src.record_date
 FROM (SELECT alf_e,
              record_date
@@ -563,7 +556,7 @@ FROM (SELECT alf_e,
       WHERE name = 'STROKE_IS') src
 WHERE tgt.alf_e = src.alf_e;
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.out_stroke_nos = src.record_date
 FROM (SELECT alf_e,
              record_date
@@ -571,7 +564,7 @@ FROM (SELECT alf_e,
       WHERE name = 'STROKE_NOS') src
 WHERE tgt.alf_e = src.alf_e;
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.out_stroke_isch = src.record_date
 FROM (SELECT alf_e,
              record_date
@@ -579,7 +572,7 @@ FROM (SELECT alf_e,
       WHERE name = 'STROKE_ISCH') src
 WHERE tgt.alf_e = src.alf_e;
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.out_stroke_sah_hs = src.record_date
 FROM (SELECT alf_e,
              record_date
@@ -589,10 +582,8 @@ WHERE tgt.alf_e = src.alf_e;
 
 -- ***********************************************************************************************
 -- Update grouped outcomes
---------------------------------------------------------------------------------------------------
-SELECT DISTINCT name FROM SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_ALL_20220115;
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.out_arterial_event = src.out_arterial_event
 FROM (SELECT alf_e,
              min(record_date) AS out_arterial_event
@@ -605,7 +596,7 @@ FROM (SELECT alf_e,
       ) src
 WHERE tgt.alf_e = src.alf_e;
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.out_venous_event = src.out_venous_event
 FROM (SELECT alf_e,
              min(record_date) AS out_venous_event
@@ -619,7 +610,7 @@ FROM (SELECT alf_e,
       ) src
 WHERE tgt.alf_e = src.alf_e;
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.out_haematological_event = src.out_haematological_event
 FROM (SELECT alf_e,
              min(record_date) AS out_haematological_event
@@ -635,11 +626,11 @@ WHERE tgt.alf_e = src.alf_e;
 --***********************************************************************************************
 -- Determine co-infection of another respiratory infection within 2 weeks before or after exposure
 -------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630
 SET coinfection_flu_pneumonia = 1
 WHERE alf_e IN
     (SELECT c.alf_e
-     FROM SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 c
+     FROM SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 c
      JOIN (-- PEDW
            SELECT alf_e,
                   admis_dt AS record_date
@@ -683,9 +674,7 @@ WHERE alf_e IN
 -- ***********************************************************************************************
 -- Number of Disorders (using Charlson codelist)
 -------------------------------------------------------------------------------------------------
---ALTER TABLE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 ADD cov_n_disorder SMALLINT NULL;
-
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.cov_n_disorder = src.n_disorder
 FROM (SELECT alf_e,
              count(DISTINCT event_cd) AS n_disorder
@@ -697,18 +686,44 @@ FROM (SELECT alf_e,
 WHERE tgt.alf_e = src.alf_e
 
 
-UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220329 tgt
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
 SET tgt.cov_n_disorder = 0
 WHERE cov_n_disorder IS NULL AND gp_coverage_end_date IS NOT NULL;
 
-SELECT max(cov_n_disorder) FROM SAILWWMCCV.CCU002_04_COVID_COHORT_20220329; -- 31
 
 -- ***********************************************************************************************
 -- Apply further exclusions
 -------------------------------------------------------------------------------------------------
-DELETE FROM SAILWWMCCV.CCU002_04_COVID_COHORT_20220329
+DELETE FROM SAILWWMCCV.CCU002_04_COVID_COHORT_20220630
 WHERE cov_age >= 110
 OR death_date < exp_confirmed_covid19_date
 OR (cov_sex=1 AND cov_cocp_meds=1)
 OR (cov_sex=1 AND cov_hrt_meds=1);
+
+
 -------------------------------------------------------------------------------------------------
+-- Add arterial events flag based on CCU002-01 definition
+-------------------------------------------------------------------------------------------------
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
+SET tgt.out_arterial_event_v2 = src.out_arterial_event_v2
+FROM (SELECT alf_e,
+             min(record_date) AS out_arterial_event_v2
+      FROM (SELECT alf_e,
+                   record_date
+            FROM SAILWWMCCV.CCU002_04_COVID_COHORT_CVD_OUTCOMES_FIRST_20220329
+            WHERE name IN ('AMI','STROKE_ISCH','ARTERIAL_EMBOLISM_OTHR')
+            AND code NOT LIKE 'G45%' -- 'STROKE_TIA'
+            )
+      GROUP BY alf_e
+      ) src
+WHERE tgt.alf_e = src.alf_e;
+
+
+-------------------------------------------------------------------------------------------------
+-- Add covid vaccination info
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
+SET tgt.cov_covid_vaccination = src.covid_vaccination,
+    tgt.cov_covid_vaccination_first_dose_date = src.covid_vaccination_first_dose_date
+FROM SAILWWMCCV.CCU002_04_COVID_COHORT_COVARIATES_20220329 src
+WHERE tgt.alf_e = src.alf_e;
+
