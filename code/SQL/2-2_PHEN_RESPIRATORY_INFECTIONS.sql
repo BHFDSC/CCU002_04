@@ -39,7 +39,7 @@ CREATE TABLE SAILWWMCCV.PHEN_PEDW_RESPIRATORY_INFECTIONS (
 DISTRIBUTE BY HASH(alf_e);
 
 --DROP TABLE SAILWWMCCV.PHEN_PEDW_RESPIRATORY_INFECTIONS;
-TRUNCATE TABLE SAILWWMCCV.PHEN_PEDW_RESPIRATORY_INFECTIONS IMMEDIATE;
+--TRUNCATE TABLE SAILWWMCCV.PHEN_PEDW_RESPIRATORY_INFECTIONS IMMEDIATE;
 
 INSERT INTO SAILWWMCCV.PHEN_PEDW_RESPIRATORY_INFECTIONS (alf_e,prov_unit_cd,spell_num_e,epi_num,record_order,admis_dt,
                                           admis_mthd_cd,admis_source_cd,admis_spec_cd,disch_dt,disch_mthd_cd,
@@ -73,10 +73,10 @@ INSERT INTO SAILWWMCCV.PHEN_PEDW_RESPIRATORY_INFECTIONS (alf_e,prov_unit_cd,spel
            s.c19_cohort20,
            s.c19_cohort16
     FROM SAILWWMCCV.WMCC_PEDW_SPELL s
-    LEFT JOIN SAILWWMCCV.WMCC_PEDW_EPISODE e
+    INNER JOIN SAILWWMCCV.WMCC_PEDW_EPISODE e
     ON s.prov_unit_cd = e.prov_unit_cd
     AND s.spell_num_e = e.spell_num_e
-    LEFT JOIN SAILWWMCCV.WMCC_PEDW_DIAG d
+    INNER JOIN SAILWWMCCV.WMCC_PEDW_DIAG d
     ON e.prov_unit_cd = d.prov_unit_cd
     AND e.spell_num_e = d.spell_num_e
     AND e.epi_num = d.epi_num
@@ -88,7 +88,6 @@ INSERT INTO SAILWWMCCV.PHEN_PEDW_RESPIRATORY_INFECTIONS (alf_e,prov_unit_cd,spel
     WHERE s.admis_yr <= 2022
     ORDER BY s.alf_e, s.admis_dt, e.epi_str_dt;
 
-SELECT * FROM SAILWWMCCV.PHEN_PEDW_RESPIRATORY_INFECTIONS;
 
 -- ***********************************************************************************************
 -- Create a table containing all respiratory infections related records in GP data
@@ -110,7 +109,7 @@ CREATE TABLE SAILWWMCCV.PHEN_WLGP_RESPIRATORY_INFECTIONS (
 DISTRIBUTE BY HASH(alf_e);
 
 --DROP TABLE SAILWWMCCV.PHEN_WLGP_RESPIRATORY_INFECTIONS;
-TRUNCATE TABLE SAILWWMCCV.PHEN_WLGP_RESPIRATORY_INFECTIONS IMMEDIATE;
+--TRUNCATE TABLE SAILWWMCCV.PHEN_WLGP_RESPIRATORY_INFECTIONS IMMEDIATE;
 
 INSERT INTO SAILWWMCCV.PHEN_WLGP_RESPIRATORY_INFECTIONS (alf_e, wob, gndr_cd, prac_cd_e, record_order,
                                                          event_dt, event_cd, event_cd_desc, event_cd_category,
@@ -177,9 +176,10 @@ INSERT INTO SAILWWMCCV.PHEN_WRRS_RESPIRATORY_INFECTIONS
 	 WHERE (code IN ('FLUAPCR','FLUBPCR','HMPVPCR','Haemophilus influenz','RSV','RSV viral result',
 		             'RSVPCR','ADPCR','BORPCR','Bordetella pertussis','CHPCR','MPAG','MPCF','MYCPCR',
 		              'MYPC','Mycoplasma pneumonia','PFPCR','PNEP','PSEUCV','PSEUDOC','RHIPCR',
-		              'Streptococcus pneumo','SCOV2PCR','PNEUM',
-		               'Parainfluenza','PF1','PF2','PF3','PF4',
-		               'RSCF', 'RSV', 'RSVD', 'RSVPCR', 'RSVPOCT')
+		              'Streptococcus pneumo','SCOV2PCR','PNEUM', -- (IgG Antibodies to Pneumoccocus)
+		               'Parainfluenza','PF1','PF2','PF3','PF4','Paraflu 1','Paraflu 2','Paraflu 3'
+		               'RSCF','RSV','RSVD','RSVPCR','RSVPOCT','POCTINFBRNA'
+					   'Influenza A','Influenzae A result','POCTINFARNA','Influenza B','Influenzae B result')
             OR b.name IN ('Respiratory Syncytial Virus PCR', 'Respiratory syncytial virus',
                           'Respiratory Syncytial Virus', 'Respiratory Syncytial Virus POCT', 'Respiratory syncitia'
                          )
@@ -235,14 +235,3 @@ WHERE alf_e IN (SELECT DISTINCT alf_e FROM SAILWMCCV.C19_COHORT20);
 UPDATE SAILWWMCCV.PHEN_WRRS_RESPIRATORY_INFECTIONS
 SET c19_cohort16 = 1
 WHERE alf_e IN (SELECT DISTINCT alf_e FROM SAILWMCCV.C19_COHORT16);
---------------------------------------------------------------------------------------------------
--- Basic checks
-SELECT test_value, count(*), count(DISTINCT alf_e)
-FROM SAILWWMCCV.PHEN_WRRS_RESPIRATORY_INFECTIONS
-WHERE alf_e IN (SELECT DISTINCT alf_e FROM SAILWMCCV.C19_COHORT20)
-GROUP BY test_value;
-
-SELECT count(*), count(DISTINCT alf_e) FROM SAILWWMCCV.PHEN_WRRS_RESPIRATORY_INFECTIONS;
-
-SELECT test_name, count(*) FROM SAILWWMCCV.PHEN_WRRS_RESPIRATORY_INFECTIONS
-GROUP BY test_name;
