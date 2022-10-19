@@ -38,7 +38,7 @@ CREATE TABLE SAILWWMCCV.CCU002_04_FLU_COHORT_COVARIATES_20220329 (
     ckd                                        smallint,
     liver_disease                              smallint,
     dementia                                   smallint,
-    bmi_obesity                                smallint,
+    bmi_obesity                                smallint,  -- Only "finding of obesity"
     bmi                                        decimal(31,8),
     obese_bmi                                  smallint,
     obesity                                    smallint,  -- bmi_obesity + obese_bmi
@@ -82,11 +82,14 @@ CREATE TABLE SAILWWMCCV.CCU002_04_FLU_COHORT_COVARIATES_20220329 (
     flu_pneumonia_infection                    smallint,
     flu_pneumonia_hospitalisation              smallint,
     flu_pneumonia_vaccination                  smallint
+    --consultation_rate                          int,
+    --unique_bnf_chapters                        int,
     )
 DISTRIBUTE BY HASH(alf_e);
 
 --DROP TABLE SAILWWMCCV.CCU002_04_FLU_COHORT_COVARIATES_20220329;
-TRUNCATE TABLE SAILWWMCCV.CCU002_04_FLU_COHORT_COVARIATES_20220329 IMMEDIATE;
+--TRUNCATE TABLE SAILWWMCCV.CCU002_04_FLU_COHORT_COVARIATES_20220329 IMMEDIATE;
+
 
 INSERT INTO SAILWWMCCV.CCU002_04_FLU_COHORT_COVARIATES_20220329 (alf_e, gndr_cd, wob, dod, gp_coverage_end_date)
     SELECT DISTINCT alf_e,
@@ -96,6 +99,34 @@ INSERT INTO SAILWWMCCV.CCU002_04_FLU_COHORT_COVARIATES_20220329 (alf_e, gndr_cd,
     gp_coverage_end_date
     FROM SAILWWMCCV.CCU002_04_INCLUDED_PATIENTS_20220329
     WHERE flu_cohort = 1;
+-------------------------------------------------------------------------------------------------
+-- Number of unique drugs prescribed within 3 months prior to inception
+-------------------------------------------------------------------------------------------------
+UPDATE SAILWWMCCV.CCU002_04_FLU_COHORT_COVARIATES_20220329 tgt
+SET tgt.unique_medications = src.unique_medications
+FROM (SELECT DISTINCT alf_e,
+             count(DISTINCT bnf_combined) AS unique_medications
+      FROM (SELECT DISTINCT alf_e,
+                   bnf_combined
+            FROM SAILWMCCV.C19_COHORT20_RRDA_WDDS
+            WHERE bnf_combined IS NOT NULL
+            AND dt_prescribed >= SAILWWMCCV.PARAM_CCU002_04_FLU_START_DT - 3 month
+            AND dt_prescribed < SAILWWMCCV.PARAM_CCU002_04_FLU_START_DT
+            )
+      GROUP BY alf_e
+      ) src
+WHERE tgt.alf_e = src.alf_e;
+
+UPDATE SAILWWMCCV.CCU002_04_FLU_COHORT_COVARIATES_20220329
+SET unique_medications = 0
+WHERE unique_medications IS NULL
+AND alf_e IN (SELECT DISTINCT alf_e
+              FROM SAILWWMCCV.WMCC_WLGP_GP_EVENT_CLEANSED
+              WHERE event_dt >= SAILWWMCCV.PARAM_CCU002_04_FLU_START_DT - 3 month
+              AND event_dt < SAILWWMCCV.PARAM_CCU002_04_FLU_START_DT);
+
+SELECT * FROM SAILWWMCCV.CCU002_04_FLU_COHORT_COVARIATES_20220329
+WHERE unique_medications IS NOT NULL;
 
 -------------------------------------------------------------------------------------------------
 -- Charlson score
@@ -235,134 +266,7 @@ WHERE tgt.alf_e = src.alf_e;
 UPDATE SAILWWMCCV.CCU002_04_FLU_COHORT_COVARIATES_20220329
 SET elixhauser_score = 0
 WHERE elixhauser_score IS NULL;
--------------------------------------------------------------------------------------------------
--- Antiplatelet drugs (at least one prescription within 3 months prior to index date)
--------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_FLU_COHORT_COVARIATES_20220329 tgt -- updated based on WLGP in the final cohort
-SET tgt.antiplatelet = 1
-FROM (SELECT DISTINCT alf_e
-      FROM (SELECT DISTINCT alf_e,
-                   bnf_combined,
-                   dt_prescribed
-            FROM SAILWWMCCV.PHEN_WDDS_COVARIATES
-            WHERE antiplatelet_agents = 1
-            AND dt_prescribed >= SAILWWMCCV.PARAM_CCU002_04_FLU_START_DT - 3 month
-            AND dt_prescribed < SAILWWMCCV.PARAM_CCU002_04_FLU_START_DT
-            )
-     ) src
-WHERE tgt.alf_e = src.alf_e;
--------------------------------------------------------------------------------------------------
--- BP lowering (at least one prescription within 3 months prior to index date)
--------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_FLU_COHORT_COVARIATES_20220329 tgt -- updated based on WLGP in the final cohort
-SET tgt.bp_lowering = 1
-FROM (SELECT DISTINCT alf_e
-      FROM (SELECT DISTINCT alf_e,
-                   bnf_combined,
-                   dt_prescribed
-            FROM SAILWWMCCV.PHEN_WDDS_COVARIATES
-            WHERE bp_lowering = 1
-            AND dt_prescribed >= SAILWWMCCV.PARAM_CCU002_04_FLU_START_DT - 3 month
-            AND dt_prescribed < SAILWWMCCV.PARAM_CCU002_04_FLU_START_DT
-            )
-     ) src
-WHERE tgt.alf_e = src.alf_e;
--------------------------------------------------------------------------------------------------
--- Lipid lowering (at least one prescription within 3 months prior to index date)
--------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_FLU_COHORT_COVARIATES_20220329 tgt-- updated based on WLGP in the final cohort
-SET tgt.lipid_lowering = 1
-FROM (SELECT DISTINCT alf_e
-      FROM (SELECT DISTINCT alf_e,
-                   bnf_combined,
-                   dt_prescribed
-            FROM SAILWWMCCV.PHEN_WDDS_COVARIATES
-            WHERE lipid_regulating_drugs = 1
-           AND dt_prescribed >= SAILWWMCCV.PARAM_CCU002_04_FLU_START_DT - 3 month
-            AND dt_prescribed < SAILWWMCCV.PARAM_CCU002_04_FLU_START_DT
-            )
-     ) src
-WHERE tgt.alf_e = src.alf_e;
--------------------------------------------------------------------------------------------------
--- Anticoagulant (at least one prescription within 3 months prior to index date)
--------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_FLU_COHORT_COVARIATES_20220329 tgt-- updated based on WLGP in the final cohort
-SET tgt.anticoagulant = 1
-FROM (SELECT DISTINCT alf_e
-      FROM (SELECT DISTINCT alf_e,
-                   bnf_combined,
-                   dt_prescribed
-            FROM SAILWWMCCV.PHEN_WDDS_COVARIATES
-            WHERE anticoagulant = 1
-            AND dt_prescribed >= SAILWWMCCV.PARAM_CCU002_04_FLU_START_DT - 3 month
-            AND dt_prescribed < SAILWWMCCV.PARAM_CCU002_04_FLU_START_DT
-            )
-     ) src
-WHERE tgt.alf_e = src.alf_e;
--------------------------------------------------------------------------------------------------
--- COCP (at least one prescription within 3 months prior to index date)
--------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_FLU_COHORT_COVARIATES_20220329 tgt-- updated based on WLGP in the final cohort
-SET tgt.cocp = 1
-FROM (SELECT DISTINCT alf_e
-      FROM (SELECT DISTINCT alf_e,
-                   bnf_combined,
-                   dt_prescribed
-            FROM SAILWWMCCV.PHEN_WDDS_COVARIATES
-            WHERE cocp = 1
-            AND dt_prescribed >= SAILWWMCCV.PARAM_CCU002_04_FLU_START_DT - 3 month
-            AND dt_prescribed < SAILWWMCCV.PARAM_CCU002_04_FLU_START_DT
-            )
-     ) src
-WHERE tgt.alf_e = src.alf_e;
--------------------------------------------------------------------------------------------------
--- HRT (at least one prescription within 3 months prior to index date)
--------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_FLU_COHORT_COVARIATES_20220329 tgt-- updated based on WLGP in the final cohort
-SET tgt.hrt = 1
-FROM (SELECT DISTINCT alf_e
-      FROM (SELECT DISTINCT alf_e,
-                   bnf_combined,
-                   dt_prescribed
-            FROM SAILWWMCCV.PHEN_WDDS_COVARIATES
-            WHERE hrt = 1
-            AND dt_prescribed >= SAILWWMCCV.PARAM_CCU002_04_FLU_START_DT - 3 month
-            AND dt_prescribed < SAILWWMCCV.PARAM_CCU002_04_FLU_START_DT
-            )
-     ) src
-WHERE tgt.alf_e = src.alf_e;
--------------------------------------------------------------------------------------------------
--- Diabetes medication (DMD code)
--------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_FLU_COHORT_COVARIATES_20220329 tgt -- only based on WLGP in the final cohort
-SET tgt.diabetes_medication = 1
-FROM (SELECT DISTINCT alf_e
-      FROM (SELECT DISTINCT alf_e,
-                   bnf_combined,
-                   dmdcode_prescribed,
-                   dt_prescribed
-            FROM SAILWWMCCV.PHEN_WDDS_COVARIATES
-            WHERE diabetes_medication = 1
-            AND dt_prescribed < SAILWWMCCV.PARAM_CCU002_04_FLU_START_DT
-            )
-     ) src
-WHERE tgt.alf_e = src.alf_e;
--------------------------------------------------------------------------------------------------
--- Hypertension medication (DMD code)
--------------------------------------------------------------------------------------------------
-UPDATE SAILWWMCCV.CCU002_04_FLU_COHORT_COVARIATES_20220329 tgt -- only based on WLGP in the final cohort
-SET tgt.hypertension_medication = 1
-FROM (SELECT DISTINCT alf_e
-      FROM (SELECT DISTINCT alf_e,
-                   bnf_combined,
-                   dmdcode_prescribed,
-                   dt_prescribed
-            FROM SAILWWMCCV.PHEN_WDDS_COVARIATES
-            WHERE hypertension_medication = 1
-            AND dt_prescribed < SAILWWMCCV.PARAM_CCU002_04_FLU_START_DT
-            )
-     ) src
-WHERE tgt.alf_e = src.alf_e;
+
 --***********************************************************************************************
 -------------------------------------------------------------------------------------------------
 -- Hypertension
@@ -1106,14 +1010,12 @@ WHERE alf_e IN (-- PEDW
                 UNION ALL
                 -- WLGP
                 SELECT alf_e
-                       --event_dt AS record_date
                 FROM SAILWWMCCV.PHEN_WLGP_RESPIRATORY_INFECTIONS
                 WHERE event_dt < SAILWWMCCV.PARAM_CCU002_04_FLU_START_DT
                 AND event_dt >= SAILWWMCCV.PARAM_CCU002_04_FLU_START_DT - 1 YEAR
                 UNION ALL
                 -- WRRS
                 SELECT alf_e
-                       --test_collected_date AS record_date
                 FROM SAILWWMCCV.PHEN_WRRS_RESPIRATORY_INFECTIONS
                 WHERE test_code IN ('FLUAPCR',              -- 'Influenza A PCR'
                                     'FLUBPCR',              -- 'Influenza B PCR'
@@ -1130,7 +1032,6 @@ UPDATE SAILWWMCCV.CCU002_04_FLU_COHORT_COVARIATES_20220329
 SET flu_pneumonia_hospitalisation = 1
 WHERE alf_e IN (-- PEDW
                 SELECT alf_e
-                       --admis_dt AS record_date
                 FROM SAILWWMCCV.PHEN_PEDW_RESPIRATORY_INFECTIONS
                 WHERE icd10_cd_category IN ('Viral influenza', 'Viral pneumonia', 'Bacterial pneumonia')
                 AND admis_dt < SAILWWMCCV.PARAM_CCU002_04_FLU_START_DT
@@ -1138,7 +1039,6 @@ WHERE alf_e IN (-- PEDW
                 UNION ALL
                 -- ICNARC
                 SELECT alf_e
-                       --daicu AS record_date
                 FROM SAILWWMCCV.WMCC_ICNC_ICNARC_LINKAGE_ALF a
                 INNER JOIN SAILWWMCCV.WMCC_ICNC_ICNARC_LINKAGE l
                 ON a.system_id_e = l.system_id_e
@@ -1162,14 +1062,3 @@ WHERE alf_e IN (SELECT alf_e
                 WHERE event_dt < SAILWWMCCV.PARAM_CCU002_04_FLU_START_DT
                 AND event_dt >= SAILWWMCCV.PARAM_CCU002_04_FLU_START_DT - 1 YEAR);
 
-UPDATE SAILWWMCCV.CCU002_04_FLU_COHORT_COVARIATES_20220329 --- 0 cases due to coverage limitation
-SET flu_pneumonia_vaccination = 1
-WHERE alf_e IN (SELECT alf_e
-                FROM SAILWMCCV.C19_COHORT20_RRDA_WDDS
-                WHERE LEFT(bnf_combined,9) IN ('1404000L0', '1404000H0', '1404000AK', '1404000AJ')
-                AND dt_prescribed < SAILWWMCCV.PARAM_CCU002_04_FLU_START_DT
-                AND dt_prescribed >= SAILWWMCCV.PARAM_CCU002_04_FLU_START_DT - 1 YEAR);
-
-SELECT count(DISTINCT alf_e) FROM SAILWWMCCV.CCU002_04_FLU_COHORT_COVARIATES_20220329
-WHERE flu_pneumonia_vaccination = 1;
--------------------------------------------------------------------------------------------------
