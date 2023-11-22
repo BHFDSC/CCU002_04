@@ -8,20 +8,19 @@ Any elevated risk of cardiovascular disease after SARS-CoV-2 infection needs to 
 
 The inflammatory responses to COVID-19 may make underlying cardiovascular disease more likely to manifest. The comparison between COVID-19 and other respiratory infections will allow us to assess whether COVID-19 is associated with an elevated risk of adverse CVD outcomes above and beyond that of other respiratory infections and to show whether the high-risk periods are different between COVID-19 and viral influenza or pneumonia (non-COVID+) infections to better define when precautions are most effective.
 
-Our aims are the following:
+Our aims are:
 
-1. to quantify if the risk of cardiovascular diseases after COVID-19 infection is higher than non-COVID+ infection in general or in particular populations;
-2. define whether the increased risk persists longer with COVID-19 than non-COVID+ infection;
-3. to understand whether subsequent risk varies according to whether patients infected with COVID-19 or non-COVID+ are hospitalised or not hospitalised. 
+1. To quantify if the risk of cardiovascular diseases after COVID-19 infection is higher than non-COVID+ infection in general or in particular populations;
+2. Define whether the increased risk persists longer with COVID-19 than non-COVID+ infection;
+3. To understand whether subsequent risk varies according to whether patients infected with COVID-19 or non-COVID+ are hospitalised or not hospitalised. 
 
 ## How to cite this work
 > Citation details to follow
 
 ## Contents
 
-Click [here] to view the analysis code
-
-Phenotyping algorithms and codelists are available [here]
+* [View the analysis code used in the SAIL Databank](https://github.com/BHFDSC/CCU002_04/tree/main/code)
+* [View the phenotyping algorithms and codelists used in the SAIL Databank](https://github.com/BHFDSC/CCU002_04/tree/main/phenotypes)
 
 ## Project approval
 
