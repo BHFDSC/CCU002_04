@@ -28,7 +28,7 @@ sources contributed varied follow-up time, which covered the years
 1990-2022. See ‘’Harmonising electronic health records for reproducible
 research: challenges, solutions and recommendations from a UK-wide
 COVID-19 research collaboration’’
-(<https://doi.org/10.21203/rs.3.rs-2109276/v1>) for more details.
+(<https://bmcmedinformdecismak.biomedcentral.com/articles/10.1186/s12911-022-02093-0>) for more details.
 
 <!-------------------------------------------------------------------------------------------->
 <!-------------------------------------------------------------------------------------------->
