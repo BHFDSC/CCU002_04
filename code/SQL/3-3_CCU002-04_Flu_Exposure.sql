@@ -218,3 +218,70 @@ FROM (SELECT alf_e,
      ) src
 WHERE tgt.alf_e = src.alf_e;
 
+-- ***********************************************************************************************
+-- New version of flu/pneumonia table with additional exposure variables
+-- ***********************************************************************************************
+CREATE TABLE SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20230322 LIKE SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20220329;
+
+--DROP TABLE SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20230322;
+--TRUNCATE TABLE SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20230322 IMMEDIATE;
+
+INSERT INTO SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20230322 SELECT * FROM SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20220329;
+
+ALTER TABLE SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20230322 ADD other_pneumonia_infections char(1) DEFAULT 0;
+-------------------------------------------------------------------------------------------------
+-- Add additional records from WRRS
+-------------------------------------------------------------------------------------------------
+INSERT INTO SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20230322
+    SELECT alf_e,
+           test_collected_date AS record_date,
+           'Confirmed' AS status,
+           'WRRS' AS source,
+           'WRRS test code' AS code,
+           test_code AS clinical_code,
+           test_name AS description,
+           --test_value,
+           NULL AS primary_position,
+           CASE WHEN test_code IN ('Parainfluenza','PF1','PF2','PF3','PF4','PFPCR',
+                                   'Paraflu 1','Paraflu 2','Paraflu 3',
+                                   'Influenza A','Influenzae A result','Influenza B','Influenzae B result'
+                                   ) THEN 1 ELSE 0 END AS flu,
+           0 AS pneumonia,
+           CASE WHEN test_code IN ('Haemophilus influenz') THEN 1 ELSE 0 END AS other_pneumonia_infections
+    FROM SAILWWMCCV.PHEN_WRRS_RESPIRATORY_INFECTIONS
+    WHERE test_code IN ('Haemophilus influenz',
+                        'Parainfluenza','PF1','PF2','PF3','PF4','Influenza A','Influenzae A result',
+                        'Influenza B','Influenzae B result','PFPCR'
+                        )
+    AND alf_e IN (SELECT DISTINCT alf_e
+                  FROM SAILWWMCCV.CCU002_04_INCLUDED_PATIENTS_20220329
+                  WHERE flu_cohort = 1)
+    AND test_collected_date >= SAILWWMCCV.PARAM_CCU002_04_FLU_START_DT
+    AND test_collected_date <= SAILWWMCCV.PARAM_CCU002_04_FLU_END_DT
+    AND test_value NOT LIKE '%Inhibitory%';
+-------------------------------------------------------------------------------------------------
+-- Add additional records from WLGP using new codelist
+-------------------------------------------------------------------------------------------------
+INSERT INTO SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20230322
+    SELECT alf_e,
+           event_dt AS record_date,
+           'Confirmed' AS status,
+           'WLGP' AS source,
+           'Read code' AS code,
+           event_cd AS clinical_code,
+           NULL AS description,
+           NULL AS primary_position,
+           0 AS flu,
+           0 AS pneumonia,
+           1 AS other_pneumonia_infections
+    FROM SAILWWMCCV.WMCC_WLGP_GP_EVENT_CLEANSED
+    WHERE alf_e IN (SELECT DISTINCT alf_e
+                    FROM SAILWWMCCV.CCU002_04_INCLUDED_PATIENTS_20220329
+                    WHERE flu_cohort = 1)
+    AND event_dt >= SAILWWMCCV.PARAM_CCU002_04_FLU_START_DT
+    AND event_dt <= SAILWWMCCV.PARAM_CCU002_04_FLU_END_DT
+    AND event_cd IN ('43D3.','43wE.','A203.','A205.','A3B5.','A3BX4','A3BXA',
+                     'A3BXB','A3By1','A3By4','A551.','A730.','A7850','AB405',
+                     'AB415','AD04.','AyuK9','H0606','H0608','H060A','H200.',
+                     'H203.','H5110','SP131','X73Rb'
+                    );
