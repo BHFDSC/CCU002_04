@@ -727,3 +727,96 @@ SET tgt.cov_covid_vaccination = src.covid_vaccination,
 FROM SAILWWMCCV.CCU002_04_COVID_COHORT_COVARIATES_20220329 src
 WHERE tgt.alf_e = src.alf_e;
 
+
+-- ***********************************************************************************************
+-- Add new variables: ICU admission and respiratory support (invasive/non-invasive ventilation or ECMO)
+-- Only for COVID admissions
+-------------------------------------------------------------------------------------------------
+ALTER TABLE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 ADD icu_admis char(1) NULL; -- within 28 days of infection
+ALTER TABLE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 ADD icu_admis_dt date NULL;
+
+ALTER TABLE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 ADD pedw_resp_support char(1) NULL;-- IMV, NIV, ECMO
+ALTER TABLE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 ADD icnarc_ccds_resp_support char(1) NULL;
+ALTER TABLE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 ADD icu_or_resp_support char(1) NULL;
+
+-------------------------------------------------------------------------------------------------
+-- ICU/CCU admission from ICNARC or CCDS (only for COVID admissions)
+-------------------------------------------------------------------------------------------------
+MERGE INTO SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
+USING (SELECT alf_e, min(icu_admis_dt) AS icu_admis_dt
+       FROM (SELECT c.alf_e, daicu AS icu_admis_dt
+             FROM SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 c
+             INNER JOIN SAILWWMCCV.WMCC_ICNC_ICNARC_LINKAGE_ALF a
+             ON c.alf_e = a.alf_e
+             INNER JOIN SAILWWMCCV.WMCC_ICNC_ICNARC_LINKAGE l
+             ON a.system_id_e = l.system_id_e
+             WHERE a.alf_e IS NOT NULL
+             AND daicu - exp_confirmed_covid19_date <= 28
+             AND TIMESTAMPDIFF(16,TIMESTAMP(daicu) - TIMESTAMP(exp_confirmed_covid19_date)) <= 28
+             AND TIMESTAMPDIFF(16,TIMESTAMP(daicu) - TIMESTAMP(exp_confirmed_covid19_date)) >= 0
+             UNION
+             SELECT c.alf_e, date(a.admis_dt) AS icu_admis_dt
+             FROM SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 c
+             INNER JOIN SAILWMCCV.C19_COHORT_CCDS_CRITICAL_CARE_EPISODE a
+             ON c.alf_e = a.alf_e
+             WHERE a.alf_e IS NOT NULL
+             AND TIMESTAMPDIFF(16,TIMESTAMP(a.admis_dt) - TIMESTAMP(exp_confirmed_covid19_date)) <= 28
+             AND TIMESTAMPDIFF(16,TIMESTAMP(a.admis_dt) - TIMESTAMP(exp_confirmed_covid19_date)) >= 0
+             )
+      GROUP BY alf_e
+      ) AS src
+ON tgt.alf_e = src.alf_e
+WHEN MATCHED AND exp_confirmed_covid_phenotype_ccu002_01 = 'hospitalised' THEN UPDATE
+SET tgt.icu_admis = 1,
+    tgt.icu_admis_dt = src.icu_admis_dt
+;
+
+-------------------------------------------------------------------------------------------------
+-- Respiratory supprt recorded in PEDW (IMV, NIV, ECMO)
+-------------------------------------------------------------------------------------------------
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
+SET tgt.pedw_resp_support = 1
+WHERE exp_confirmed_covid_phenotype_ccu002_01 = 'hospitalised'
+AND alf_e IN (SELECT c.alf_e
+              FROM SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 c
+              INNER JOIN SAILWWMCCV.WMCC_PEDW_SPELL s
+              ON c.alf_e = s.alf_e
+              INNER JOIN SAILWWMCCV.WMCC_PEDW_EPISODE e
+              ON s.prov_unit_cd = e.prov_unit_cd
+              AND s.spell_num_e = e.spell_num_e
+              INNER JOIN SAILWWMCCV.WMCC_PEDW_OPER o
+              ON e.prov_unit_cd = o.prov_unit_cd
+              AND e.spell_num_e = o.spell_num_e
+              AND e.spell_num_e = o.spell_num_e
+              INNER JOIN SAILWWMCCV.PHEN_OPCS_VENTILATION v
+              ON o.oper_cd = v.code OR LEFT(o.oper_cd,3) = v.code
+              WHERE TIMESTAMPDIFF(16,TIMESTAMP(admis_dt) - TIMESTAMP(exp_confirmed_covid19_date)) <= 28
+              AND TIMESTAMPDIFF(16,TIMESTAMP(admis_dt) - TIMESTAMP(exp_confirmed_covid19_date)) >= 0
+              )
+;
+SELECT * FROM SAILWWMCCV.PHEN_OPCS_VENTILATION;
+-------------------------------------------------------------------------------------------------
+--- Respiratory supprt recorded in ICNARC
+-------------------------------------------------------------------------------------------------
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
+SET tgt.icnarc_ccds_resp_support = 1
+WHERE exp_confirmed_covid_phenotype_ccu002_01 = 'hospitalised'
+AND alf_e IN (SELECT c.alf_e
+              FROM SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 c
+              INNER JOIN SAILWWMCCV.WMCC_ICNC_ICNARC_LINKAGE_ALF a
+              ON c.alf_e = a.alf_e
+              INNER JOIN SAILWWMCCV.WMCC_ICNC_ICNARC_LINKAGE l
+              ON a.system_id_e = l.system_id_e
+              WHERE (arsd >= 1 OR vent = 1 OR brsd >= 1)
+              AND TIMESTAMPDIFF(16,TIMESTAMP(daicu) - TIMESTAMP(exp_confirmed_covid19_date)) <= 28
+              AND TIMESTAMPDIFF(16,TIMESTAMP(daicu) - TIMESTAMP(exp_confirmed_covid19_date)) >= 0
+              )
+;
+
+-------------------------------------------------------------------------------------------------
+-- ICU admission or any respiratory support
+-------------------------------------------------------------------------------------------------
+UPDATE SAILWWMCCV.CCU002_04_COVID_COHORT_20220630 tgt
+SET tgt.icu_or_resp_support = 1
+WHERE icnarc_ccds_resp_support = 1 OR pedw_resp_support = 1 OR icu_admis;
+
