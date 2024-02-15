@@ -736,3 +736,67 @@ FROM (SELECT alf_e,
 WHERE tgt.alf_e = src.alf_e
 AND row_num = 1;
 
+-- ***********************************************************************************************
+-- Added additional exposure variables to the flu cohort
+-- ***********************************************************************************************
+ALTER TABLE SAILWWMCCV.CCU002_04_FLU_COHORT_20220329 ADD exp1_pneumonia_date date NULL;
+ALTER TABLE SAILWWMCCV.CCU002_04_FLU_COHORT_20220329 ADD exp1_pneumonia_phenotype char(20) NULL;
+
+ALTER TABLE SAILWWMCCV.CCU002_04_FLU_COHORT_20220329 ADD exp1_pneumonia_date_v2 date NULL;
+ALTER TABLE SAILWWMCCV.CCU002_04_FLU_COHORT_20220329 ADD exp1_pneumonia_phenotype_v2 char(20) NULL;
+
+ALTER TABLE SAILWWMCCV.CCU002_04_FLU_COHORT_20220329 ADD exp2_flu_date date NULL;
+ALTER TABLE SAILWWMCCV.CCU002_04_FLU_COHORT_20220329 ADD exp2_flu_phenotype char(20) NULL;
+
+ALTER TABLE SAILWWMCCV.CCU002_04_FLU_COHORT_20220329 ADD exp3_both_date date NULL;
+ALTER TABLE SAILWWMCCV.CCU002_04_FLU_COHORT_20220329 ADD exp3_both_phenotype char(20) NULL;
+
+ALTER TABLE SAILWWMCCV.CCU002_04_FLU_COHORT_20220329 ADD exp4_both_and_other_infections_date date NULL;
+ALTER TABLE SAILWWMCCV.CCU002_04_FLU_COHORT_20220329 ADD exp4_both_and_other_infections_phenotype char(20) NULL;
+
+-- ***********************************************************************************************
+-- Update new exposure variables
+-------------------------------------------------------------------------------------------------
+-- Pneumonia (original version)
+-------------------------------------------------------------------------------------------------
+UPDATE SAILWWMCCV.CCU002_04_FLU_COHORT_20220329 tgt
+SET tgt.exp1_pneumonia_date = src.exp1_pneumonia_date,
+    tgt.exp1_pneumonia_phenotype = src.exp1_pneumonia_phenotype
+FROM SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_HOSPITALISATION_20230322 src
+WHERE tgt.alf_e = src.alf_e;
+
+-------------------------------------------------------------------------------------------------
+-- Pneumonia
+-------------------------------------------------------------------------------------------------
+UPDATE SAILWWMCCV.CCU002_04_FLU_COHORT_20220329 tgt
+SET tgt.exp1_pneumonia_date_v2 = src.exp1_pneumonia_date_v2,
+    tgt.exp1_pneumonia_phenotype_v2 = src.exp1_pneumonia_phenotype_v2
+FROM SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_HOSPITALISATION_20230322 src
+WHERE tgt.alf_e = src.alf_e;
+
+-------------------------------------------------------------------------------------------------
+-- Flu
+-------------------------------------------------------------------------------------------------
+UPDATE SAILWWMCCV.CCU002_04_FLU_COHORT_20220329 tgt
+SET tgt.exp2_flu_date = src.exp2_flu_date,
+    tgt.exp2_flu_phenotype = src.exp2_flu_phenotype
+FROM SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_HOSPITALISATION_20230322 src
+WHERE tgt.alf_e = src.alf_e;
+
+-------------------------------------------------------------------------------------------------
+-- Flu or pneumonia
+-------------------------------------------------------------------------------------------------
+UPDATE SAILWWMCCV.CCU002_04_FLU_COHORT_20220329 tgt
+SET tgt.exp3_both_date = src.exp3_both_date,
+    tgt.exp3_both_phenotype = src.exp3_both_phenotype
+FROM SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_HOSPITALISATION_20230322 src
+WHERE tgt.alf_e = src.alf_e;
+
+-------------------------------------------------------------------------------------------------
+-- Flu, pneumonia or other infections
+-------------------------------------------------------------------------------------------------
+UPDATE SAILWWMCCV.CCU002_04_FLU_COHORT_20220329 tgt
+SET tgt.exp4_both_and_other_infections_date = src.exp4_both_and_other_infections_date,
+    tgt.exp4_both_and_other_infections_phenotype = src.exp4_both_and_other_infections_phenotype
+FROM SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_HOSPITALISATION_20230322 src
+WHERE tgt.alf_e = src.alf_e;
