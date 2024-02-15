@@ -285,3 +285,303 @@ INSERT INTO SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20230322
                      'AB415','AD04.','AyuK9','H0606','H0608','H060A','H200.',
                      'H203.','H5110','SP131','X73Rb'
                     );
+
+
+-- ***********************************************************************************************
+-- New version of the influenza/pneumonia hospitalisation table
+-- ***********************************************************************************************
+CREATE TABLE SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_HOSPITALISATION_20230322 (
+    alf_e                                      bigint,
+    exp1_pneumonia_date                        date,
+    exp1_pneumonia_phenotype                   char(20),
+    exp1_pneumonia_date_v2                     date,
+    exp1_pneumonia_phenotype_v2                char(20),
+    exp2_flu_date                              date,
+    exp2_flu_phenotype                         char(20),
+    exp3_both_date                             date,
+    exp3_both_phenotype                        char(20),
+    exp4_both_and_other_infections_date        date,
+    exp4_both_and_other_infections_phenotype   char(20)
+    )
+DISTRIBUTE BY HASH(alf_e);
+
+TRUNCATE TABLE SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_HOSPITALISATION_20230322 IMMEDIATE;
+-------------------------------------------------------------------------------------------------
+-- Add all hospitalised ALFs
+-------------------------------------------------------------------------------------------------
+INSERT INTO SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_HOSPITALISATION_20230322 (alf_e)
+    SELECT DISTINCT alf_e
+    FROM SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20230322 a
+    WHERE status = 'Confirmed';
+
+-------------------------------------------------------------------------------------------------
+-- Exposure 1: Pneumonia hospitalisation (original version)
+-------------------------------------------------------------------------------------------------
+UPDATE SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_HOSPITALISATION_20230322 tgt
+SET tgt.exp1_pneumonia_date = src.exposure_date,
+    tgt.exp1_pneumonia_phenotype = src.exposure_phenotype
+FROM (SELECT alf_e,
+           min(record_date) AS exposure_date,
+           exposure_phenotype
+    FROM (SELECT a.alf_e,
+                 a.record_date,
+                 a.status,
+                 b.exposure_phenotype
+          FROM SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20230322 a
+          LEFT JOIN (SELECT DISTINCT alf_e,
+                            'hospitalised' AS exposure_phenotype,
+                            days_between
+                     FROM (SELECT t1.alf_e,
+                                  t1.first_admission_date,
+                                  t2.first_related_event,
+                                  TIMESTAMPDIFF(16,TIMESTAMP(first_admission_date) - TIMESTAMP(first_related_event)) AS days_between
+                           FROM (SELECT alf_e,
+                                        min(record_date) AS first_admission_date
+                                 FROM SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20230322 a
+                                 WHERE source IN ('PEDW', 'ICNC')
+                                 AND status = 'Confirmed'
+                                 AND primary_position = 1
+                                 AND pneumonia = 1
+                                 GROUP BY alf_e
+                                ) t1
+                           LEFT JOIN (SELECT alf_e,
+                                             min(record_date) AS first_related_event
+                                      FROM SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20230322 a
+                                      WHERE status = 'Confirmed'
+                                      AND pneumonia = 1
+                                      GROUP BY alf_e
+                                       ) t2
+                           ON t1.alf_e = t2.alf_e
+                           ORDER BY t2.first_related_event
+                           )
+                     WHERE days_between <= 28
+                    ) b
+          ON a.alf_e = b.alf_e
+          WHERE a.status = 'Confirmed'
+          AND pneumonia = 1
+          )
+    GROUP BY alf_e, exposure_phenotype) src
+WHERE tgt.alf_e = src.alf_e;
+
+UPDATE SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_HOSPITALISATION_20230322
+SET exp1_pneumonia_phenotype = 'non-hospitalised'
+WHERE exp1_pneumonia_phenotype IS NULL
+AND exp1_pneumonia_date IS NOT NULL;
+
+-------------------------------------------------------------------------------------------------
+-- Exposure 1 V2: Pneumonia hospitalisation
+-------------------------------------------------------------------------------------------------
+UPDATE SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_HOSPITALISATION_20230322 tgt
+SET tgt.exp1_pneumonia_date_v2 = src.exposure_date,
+    tgt.exp1_pneumonia_phenotype_v2 = src.exposure_phenotype
+FROM (SELECT alf_e,
+           min(record_date) AS exposure_date,
+           exposure_phenotype
+    FROM (SELECT a.alf_e,
+                 a.record_date,
+                 a.status,
+                 b.exposure_phenotype
+          FROM SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20230322 a
+          LEFT JOIN (SELECT DISTINCT alf_e,
+                            'hospitalised' AS exposure_phenotype,
+                            days_between
+                     FROM (SELECT t1.alf_e,
+                                  t1.first_admission_date,
+                                  t2.first_related_event,
+                                  TIMESTAMPDIFF(16,TIMESTAMP(first_admission_date) - TIMESTAMP(first_related_event)) AS days_between
+                           FROM (SELECT alf_e,
+                                        min(record_date) AS first_admission_date
+                                 FROM SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20230322 a
+                                 WHERE source IN ('PEDW', 'ICNC')
+                                 AND status = 'Confirmed'
+                                 AND primary_position = 1
+                                 AND pneumonia = 1
+                                 GROUP BY alf_e
+                                ) t1
+                           LEFT JOIN (SELECT alf_e,
+                                             min(record_date) AS first_related_event
+                                      FROM SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20230322 a
+                                      WHERE status = 'Confirmed'
+                                      AND (pneumonia = 1 OR other_pneumonia_infections = 1)----------
+                                      GROUP BY alf_e
+                                       ) t2
+                           ON t1.alf_e = t2.alf_e
+                           ORDER BY t2.first_related_event
+                           )
+                     WHERE days_between <= 28
+                    ) b
+          ON a.alf_e = b.alf_e
+          WHERE a.status = 'Confirmed'
+          AND (pneumonia = 1 OR other_pneumonia_infections = 1) ---------
+          )
+    GROUP BY alf_e, exposure_phenotype
+    ORDER BY alf_e) src
+WHERE tgt.alf_e = src.alf_e;
+
+UPDATE SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_HOSPITALISATION_20230322
+SET exp1_pneumonia_phenotype_v2 = 'non-hospitalised'
+WHERE exp1_pneumonia_phenotype_v2 IS NULL
+AND exp1_pneumonia_date_v2 IS NOT NULL;
+
+-------------------------------------------------------------------------------------------------
+-- Exposure 2: Flu hospitalisation
+-------------------------------------------------------------------------------------------------
+UPDATE SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_HOSPITALISATION_20230322 tgt
+SET tgt.exp2_flu_date = src.exposure_date,
+    tgt.exp2_flu_phenotype = src.exposure_phenotype
+FROM (SELECT alf_e,
+           min(record_date) AS exposure_date,
+           exposure_phenotype
+    FROM (SELECT a.alf_e,
+                 a.record_date,
+                 a.status,
+                 b.exposure_phenotype
+          FROM SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20230322 a
+          LEFT JOIN (SELECT DISTINCT alf_e,
+                            'hospitalised' AS exposure_phenotype,
+                            days_between
+                     FROM (SELECT t1.alf_e,
+                                  t1.first_admission_date,
+                                  t2.first_related_event,
+                                  TIMESTAMPDIFF(16,TIMESTAMP(first_admission_date) - TIMESTAMP(first_related_event)) AS days_between
+                           FROM (SELECT alf_e,
+                                        min(record_date) AS first_admission_date
+                                 FROM SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20230322 a
+                                 WHERE source IN ('PEDW', 'ICNC')
+                                 AND status = 'Confirmed'
+                                 AND primary_position = 1
+                                 AND flu = 1
+                                 GROUP BY alf_e
+                                ) t1
+                           LEFT JOIN (SELECT alf_e,
+                                             min(record_date) AS first_related_event
+                                      FROM SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20230322 a
+                                      WHERE status = 'Confirmed'
+                                      AND flu = 1
+                                      GROUP BY alf_e
+                                       ) t2
+                           ON t1.alf_e = t2.alf_e
+                           ORDER BY t2.first_related_event
+                           )
+                     WHERE days_between <= 28
+                    ) b
+          ON a.alf_e = b.alf_e
+          WHERE a.status = 'Confirmed'
+          AND flu = 1
+          )
+    GROUP BY alf_e, exposure_phenotype
+    ORDER BY alf_e) src
+WHERE tgt.alf_e = src.alf_e;
+
+
+UPDATE SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_HOSPITALISATION_20230322
+SET exp2_flu_phenotype = 'non-hospitalised'
+WHERE exp2_flu_phenotype IS NULL
+AND exp2_flu_date IS NOT NULL;
+
+-------------------------------------------------------------------------------------------------
+-- Exposure 3: Flu or pneumonia hospitalisation
+-------------------------------------------------------------------------------------------------
+UPDATE SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_HOSPITALISATION_20230322 tgt
+SET tgt.exp3_both_date = src.exposure_date,
+    tgt.exp3_both_phenotype = src.exposure_phenotype
+FROM (SELECT alf_e,
+           min(record_date) AS exposure_date,
+           exposure_phenotype
+    FROM (SELECT a.alf_e,
+                 a.record_date,
+                 a.status,
+                 b.exposure_phenotype
+          FROM SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20230322 a
+          LEFT JOIN (SELECT DISTINCT alf_e,
+                            'hospitalised' AS exposure_phenotype,
+                            days_between
+                     FROM (SELECT t1.alf_e,
+                                  t1.first_admission_date,
+                                  t2.first_related_event,
+                                  TIMESTAMPDIFF(16,TIMESTAMP(first_admission_date) - TIMESTAMP(first_related_event)) AS days_between
+                           FROM (SELECT alf_e,
+                                        min(record_date) AS first_admission_date
+                                 FROM SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20230322 a
+                                 WHERE source IN ('PEDW', 'ICNC')
+                                 AND status = 'Confirmed'
+                                 AND primary_position = 1
+                                 AND (pneumonia = 1 OR flu = 1)----------
+                                 GROUP BY alf_e
+                                ) t1
+                           LEFT JOIN (SELECT alf_e,
+                                             min(record_date) AS first_related_event
+                                      FROM SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20230322 a
+                                      WHERE status = 'Confirmed'
+                                      AND (pneumonia = 1 OR flu = 1)
+                                      GROUP BY alf_e
+                                       ) t2
+                           ON t1.alf_e = t2.alf_e
+                           ORDER BY t2.first_related_event
+                           )
+                     WHERE days_between <= 28
+                    ) b
+          ON a.alf_e = b.alf_e
+          WHERE a.status = 'Confirmed'
+          AND (pneumonia = 1 OR flu = 1)
+          )
+    GROUP BY alf_e, exposure_phenotype
+    ORDER BY alf_e) src
+WHERE tgt.alf_e = src.alf_e;
+
+UPDATE SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_HOSPITALISATION_20230322
+SET exp3_both_phenotype = 'non-hospitalised'
+WHERE exp3_both_phenotype IS NULL
+AND exp3_both_date IS NOT NULL;
+
+-------------------------------------------------------------------------------------------------
+-- Exposure 4: Flu, pneumonia or other pneumonia infections hospitalisation
+-------------------------------------------------------------------------------------------------
+UPDATE SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_HOSPITALISATION_20230322 tgt
+SET tgt.exp4_both_and_other_infections_date = src.exposure_date,
+    tgt.exp4_both_and_other_infections_phenotype = src.exposure_phenotype
+FROM (SELECT alf_e,
+           min(record_date) AS exposure_date,
+           exposure_phenotype
+    FROM (SELECT a.alf_e,
+                 a.record_date,
+                 a.status,
+                 b.exposure_phenotype
+          FROM SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20230322 a
+          LEFT JOIN (SELECT DISTINCT alf_e,
+                            'hospitalised' AS exposure_phenotype,
+                            days_between
+                     FROM (SELECT t1.alf_e,
+                                  t1.first_admission_date,
+                                  t2.first_related_event,
+                                  TIMESTAMPDIFF(16,TIMESTAMP(first_admission_date) - TIMESTAMP(first_related_event)) AS days_between
+                           FROM (SELECT alf_e,
+                                        min(record_date) AS first_admission_date
+                                 FROM SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20230322 a
+                                 WHERE source IN ('PEDW', 'ICNC')
+                                 AND status = 'Confirmed'
+                                 AND primary_position = 1
+                                 GROUP BY alf_e
+                                ) t1
+                           LEFT JOIN (SELECT alf_e,
+                                             min(record_date) AS first_related_event
+                                      FROM SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_ALL_20230322 a
+                                      WHERE status = 'Confirmed'
+                                      GROUP BY alf_e
+                                       ) t2
+                           ON t1.alf_e = t2.alf_e
+                           ORDER BY t2.first_related_event
+                           )
+                     WHERE days_between <= 28
+                    ) b
+          ON a.alf_e = b.alf_e
+          WHERE a.status = 'Confirmed'
+          )
+    GROUP BY alf_e, exposure_phenotype
+    ORDER BY alf_e) src
+WHERE tgt.alf_e = src.alf_e;
+
+UPDATE SAILWWMCCV.CCU002_04_FLU_PNEUMONIA_HOSPITALISATION_20230322
+SET exp4_both_and_other_infections_phenotype = 'non-hospitalised'
+WHERE exp4_both_and_other_infections_phenotype IS NULL
+AND exp4_both_and_other_infections_date IS NOT NULL;
