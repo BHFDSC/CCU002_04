@@ -1,0 +1,256 @@
+---
+title: "CCU002-04 Table 1 COVID,Flu/Pneumonia"
+author: "Spencer Keene adapted from Hoda Abbasizanjani scripts"
+date: "Last edited `r format(Sys.time(), '%B %d, %Y')`"
+output:
+  word_document:
+    keep_md: yes
+    toc_depth: 2
+  html_document:
+    toc_depth: '2'
+    df_print: paged
+header-includes: null
+---
+
+```{r global_options, include=FALSE}
+library(knitr)
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+```
+
+```{r "loginSctn", eval=TRUE, echo = FALSE }
+# library(RODBC);
+# source("S:/WMCC - WMCC - Wales Multi-morbidity Cardiovascular Covid-19 UK (0911)/CCU002/CCU002-04_Hoda/R_login/login_box.r");
+# login = getLogin(); 
+# sql = odbcConnect('PR_SAIL',login[1],login[2]);
+# login = 0
+```
+
+
+```{r "LOAD_PACKAGES", eval=TRUE, echo=FALSE}
+library(lubridate)
+library(tidyr)
+library(Cairo)
+library(fastmap)
+library(assertthat)
+library(tidyverse)
+library(gt)
+library(gtsummary)
+library(magrittr)
+library(data.table)
+library(dplyr)
+library(broom)
+library(purrr)
+#library(webshot)
+#library(flextable)
+```
+
+
+```{r "READ_DATA_COVID", eval=TRUE, echo=FALSE}
+rm(list=ls())
+
+
+df <- data.table::fread("P:/keenes/Projects/CCU002-04/raw/CCU002_04_COVID_COHORT_20220630_baseline.csv",
+                        data.table = FALSE)
+
+#FOR HOSPITALISATION/NON-HOSPITALISATION
+df$COVID_STATUS <- ifelse(is.na(df$EXP_CONFIRMED_COVID_PHENOTYPE) | df$EXP_CONFIRMED_COVID_PHENOTYPE == "" |       df$EXP_CONFIRMED_COVID_PHENOTYPE == "non-hospitalised", "Without hospitalised COVID-19", "hospitalised COVID-19") 
+#                           ifelse(df$EXP_CONFIRMED_COVID_PHENOTYPE == "hospitalised                  " | #df$EXP_CONFIRMED_COVID_PHENOTYPE == "hospitalised", "Hospitalised COVID-19", "Non-hospitalised COVID-19"))
+
+# df$COVID_STATUS <- ifelse(is.na(df$EXP_CONFIRMED_COVID_PHENOTYPE) | df$EXP_CONFIRMED_COVID_PHENOTYPE == "", 
+#                          "Without COVID-19", "With COVID-19") 
+
+df$age_cat <- ifelse(df$COV_AGE >=18 & df$COV_AGE <= 29, '18-29',
+                     ifelse(df$COV_AGE >=30 & df$COV_AGE <= 39, '30-39',
+                            ifelse(df$COV_AGE >=40 & df$COV_AGE <= 49, '40-49',
+                                   ifelse(df$COV_AGE >=50 & df$COV_AGE <= 59, '50-59',
+                                          ifelse(df$COV_AGE >=60 & df$COV_AGE <= 69, '60-69',
+                                                 ifelse(df$COV_AGE >=70 & df$COV_AGE <= 79, '70-79', 
+                                                        ifelse(df$COV_AGE >=80 & df$COV_AGE <= 89, '80-89', 
+                                                               ifelse(df$COV_AGE >= 90, '90+', 'Missing'))))))))
+df$wimd <- ifelse(is.na(df$COV_DEPRIVATION), 'Missing', df$COV_DEPRIVATION)
+df$hx_hypertension<-pmax(df$COV_EVER_HYPERTENSION, df$COV_BP_LOWERING_MEDS)
+df$COV_N_DISORDER[is.na(df$COV_N_DISORDER)] <-0
+df$COV_SEX <- ifelse(df$COV_SEX==2, "Female", "Male")
+df$AMI_ANGINA<-pmax(df$COV_EVER_ANGINA, df$COV_EVER_AMI)
+
+df$ICU_OR_RESP_SUPPORT2 <- df$ICU_OR_RESP_SUPPORT
+
+df$ICU_OR_RESP_SUPPORT2[is.na(df$ICU_OR_RESP_SUPPORT)]=0
+df$ICU_OR_RESP_SUPPORT2[(df$EXP_CONFIRMED_COVID_PHENOTYPE=="hospitalised")]=1
+df$ICU_OR_RESP_SUPPORT2[(df$ICU_OR_RESP_SUPPORT)==1]=2
+
+df$ICU_label<-ifelse(df$ICU_OR_RESP_SUPPORT2==2, "ICU hospitalisation", 
+                     ifelse(df$ICU_OR_RESP_SUPPORT2==1, "non-ICU hospitalisation", "no infection" ))
+
+df$Pneum_Hosp<-0
+
+
+df2 <- data.table::fread("P:/keenes/Projects/CCU002-04/raw/CCU002_04_FLU_COHORT_20230322_baseline.csv",
+                        data.table = FALSE)
+
+#FOR HOSPITALISATION/NON-HOSPITALISATION
+df2$FLU_STATUS <- ifelse(is.na(df2$EXP_CONFIRMED_FLU_PNEUMONIA_PHENOTYPE) | df2$EXP_CONFIRMED_FLU_PNEUMONIA_PHENOTYPE == "" 
+                         | df2$EXP_CONFIRMED_FLU_PNEUMONIA_PHENOTYPE == "non-hospitalised",  
+                          "Without hospitalised influenza/pneumonia", "Hospitalised influenza/pneumonia" ) 
+#                          ifelse(df2$EXP_CONFIRMED_FLU_PNEUMONIA_PHENOTYPE == "hospitalised                  " | #  df2$EXP_CONFIRMED_FLU_PNEUMONIA_PHENOTYPE == "hospitalised", "Hospitalised influenza/pneumonia", "Non-hospitalised #influenza/pneumonia"))
+
+# df2$FLU_STATUS <- ifelse(is.na(df2$EXP_CONFIRMED_FLU_PNEUMONIA_PHENOTYPE) | df2$EXP_CONFIRMED_FLU_PNEUMONIA_PHENOTYPE == "", 
+#                          "Without influenza/pneumonia", "With influenza/pneumonia") 
+
+df2$age_cat <- ifelse(df2$COV_AGE >=18 & df2$COV_AGE <= 29, '18-29',
+                     ifelse(df2$COV_AGE >=30 & df2$COV_AGE <= 39, '30-39',
+                            ifelse(df2$COV_AGE >=40 & df2$COV_AGE <= 49, '40-49',
+                                   ifelse(df2$COV_AGE >=50 & df2$COV_AGE <= 59, '50-59',
+                                          ifelse(df2$COV_AGE >=60 & df2$COV_AGE <= 69, '60-69',
+                                                 ifelse(df2$COV_AGE >=70 & df2$COV_AGE <= 79, '70-79', 
+                                                        ifelse(df2$COV_AGE >=80 & df2$COV_AGE <= 89, '80-89', 
+                                                               ifelse(df2$COV_AGE >= 90, '90+', 'Missing'))))))))
+df2$wimd <- ifelse(is.na(df2$COV_DEPRIVATION), 'Missing', df2$COV_DEPRIVATION)
+df2$hx_hypertension<-pmax(df2$COV_EVER_HYPERTENSION, df2$COV_BP_LOWERING_MEDS)
+df2$COV_N_DISORDER[is.na(df2$COV_N_DISORDER)] <-0
+df2$COV_SEX <- ifelse(df2$COV_SEX==2, "Female", "Male")
+df2$AMI_ANGINA<-pmax(df2$COV_EVER_ANGINA, df2$COV_EVER_AMI)
+
+df2$ICU_OR_RESP_SUPPORT2 <- df2$ICU_OR_RESP_SUPPORT
+
+df2$ICU_OR_RESP_SUPPORT2[is.na(df2$ICU_OR_RESP_SUPPORT)]=0
+df2$ICU_OR_RESP_SUPPORT2[(df2$EXP_CONFIRMED_FLU_PNEUMONIA_PHENOTYPE=="hospitalised")]=1
+df2$ICU_OR_RESP_SUPPORT2[(df2$ICU_OR_RESP_SUPPORT)==1]=2
+
+df2$ICU_label<-ifelse(df2$ICU_OR_RESP_SUPPORT2==2, "ICU hospitalisation", 
+                     ifelse(df2$ICU_OR_RESP_SUPPORT2==1, "non-ICU hospitalisation", "no infection" ))
+
+#df2$Pneum_Hosp<-ifelse(df2$EXP1_PNEUMONIA_PHENOTYPE=="hospitalised", 1,0)
+df2$Pneum_Hosp<-ifelse(df2$EXP2_FLU_PHENOTYPE=="hospitalised", 1,0)
+
+df_COVID <-df
+df_FLU <-df2
+
+
+# df_COVID %>%
+#   filter(COVID_STATUS=="With COVID-19")
+# 
+# df_FLU %>%
+#   filter(FLU_STATUS=="With influenza/pneumonia")
+
+df_COVID=rename(df_COVID,STATUS=COVID_STATUS)
+df_FLU=rename(df_FLU,STATUS=FLU_STATUS)
+
+df_FLU <- df_FLU %>%
+  select(                           
+    COV_SEX,
+    COV_AGE,
+#    age_cat,
+    COV_ETHNICITY,
+    wimd,
+    COV_ELIXHAUSER_SCORE,
+    COV_SMOKING_STATUS,
+    COV_SURGERY_LASTYR,
+    hx_hypertension,
+    ICU_label,
+    COV_EVER_DEMENTIA,
+#    COV_EVER_LIVER_DISEASE,
+    AMI_ANGINA,
+    COV_EVER_CKD,
+    COV_EVER_CANCER,
+    COV_EVER_DIABETES,
+    COV_EVER_OBESITY,
+    COV_EVER_DEPRESSION,
+    COV_EVER_COPD,
+#    COV_EVER_STROKE_ISCH,
+#    COV_EVER_STROKE_SAH_HS,
+    COV_EVER_ANY_STROKE,
+#    COV_EVER_MESENTERIC_THROMBUS,
+#    COV_EVER_ARTERY_DISSECT,
+#    COV_EVER_LIFE_ARRHYTHMIA,
+#    COV_EVER_CARDIOMYOPATHY,
+#    COV_EVER_ANGINA,
+    COV_EVER_HF,
+    COV_EVER_PE_VT,
+#    COV_EVER_OTHER_DVT,
+#    COV_EVER_DVT_ICVT,
+#    COV_EVER_OTHER_ARTERIAL_EMBOLISM,
+#    COV_EVER_PORTAL_VEIN_THROMBOSIS,
+#    COV_EVER_PERICARDITIS,
+#    COV_EVER_MYOCARDITIS,
+    COV_EVER_ANY_CVD,
+    COV_EVER_FRACTURE,
+    COV_N_DISORDER,
+#    COV_UNIQUE_MEDICATIONS,
+    COV_ANTIPLATELET_MEDS,
+    COV_LIPID_MEDS,
+    COV_ANTICOAGULATION_MEDS,
+     Pneum_Hosp,
+#    COV_COCP_MEDS,
+#    COV_HRT_MEDS
+     STATUS
+)
+
+df_cols <- colnames(df_FLU)
+df_COVID <- df_COVID %>% dplyr::select(all_of(df_cols))
+
+df_combined<-rbind(df_COVID, df_FLU)
+
+```
+
+
+```{r "TABLE_1_COVID_infection", eval=TRUE, echo=FALSE}
+#exclude COV_EVER_DVT_DVT in favor of COV_EVER_PE_VT
+
+#df_COVID<-filter(df_COVID, EXP_CONFIRMED_COVID_PHENOTYPE=="Non-hospitalised") 
+#df_combined<-filter(df_combined, STATUS!="Non-hospitalised influenza/pneumonia" & STATUS!="Non-hospitalised #COVID-19") 
+
+df_combined %>%
+  tbl_summary(by = STATUS,
+              statistic = list(all_continuous()  ~ "{mean} ({sd})"),
+              label = list(COV_SEX  ~ "Sex",
+                           COV_AGE  ~ "Age (mean, SD)",
+                           COV_ETHNICITY  ~ "Ethnicity",
+                           COV_ELIXHAUSER_SCORE  ~ "Elixhauser score",
+                           COV_SMOKING_STATUS  ~ "Smoking status",
+                           COV_EVER_DEMENTIA  ~ "Dementia",
+#                          COV_EVER_LIVER_DISEASE  ~ "Liver Disease",
+                           AMI_ANGINA ~ "Myocardial Infarction or Angina", 
+                           COV_EVER_CKD  ~ "CKD",
+                           COV_EVER_CANCER  ~ "Cancer",
+                           COV_SURGERY_LASTYR  ~ "Surgery in the last year",
+                           COV_EVER_DIABETES  ~ "Diabetes",
+                           COV_EVER_OBESITY  ~ "Obesity",
+                           COV_EVER_DEPRESSION  ~ "Depression",
+                           COV_EVER_COPD  ~ "COPD",
+#                          COV_EVER_STROKE_SAH_HS  ~ "Haemorrhagic stroke",
+                           COV_EVER_ANY_STROKE  ~ "Any stroke",
+#                          COV_EVER_MESENTERIC_THROMBUS  ~ "Mesenteric Thrombosis",
+#                           COV_EVER_ARTERY_DISSECT  ~ "Artery Dissection",
+#                           COV_EVER_LIFE_ARRHYTHMIA  ~ "Life-threatening arrhythmia",
+#                           COV_EVER_CARDIOMYOPATHY  ~ "Cardiomyopathy",
+#                           COV_EVER_ANGINA  ~ "Angina",
+                           COV_EVER_HF  ~ "Heart Failure",
+#                           COV_EVER_STROKE_ISCH  ~ "Ischemic Stroke", 
+#                           COV_EVER_OTHER_ARTERIAL_EMBOLISM  ~ "Other arterial embolism", 
+#                           COV_EVER_DVT_ICVT  ~ "ICVT",
+#                           COV_EVER_OTHER_DVT  ~ "Other DVT",
+#                           COV_EVER_PORTAL_VEIN_THROMBOSIS  ~ "Portal Vein Thrombosis",
+#                           COV_EVER_PERICARDITIS  ~ "Pericarditis",
+#                           COV_EVER_MYOCARDITIS  ~ "Myocarditis",
+                           COV_EVER_FRACTURE  ~ "Lower limb fracture",
+                           COV_EVER_ANY_CVD  ~ "Any CVD",
+#                           COV_UNIQUE_MEDICATIONS  ~ "Number of unique medications",
+                           COV_ANTIPLATELET_MEDS  ~ "Antiplatelet",
+                           COV_EVER_PE_VT  ~ "DVT or PE",
+                           COV_LIPID_MEDS  ~ "Lipid lowering",
+                           COV_ANTICOAGULATION_MEDS  ~ "Anticoagulant",
+#                           COV_COCP_MEDS  ~ "Combined oral contraceptive pill",
+#                           COV_HRT_MEDS  ~ "Hormone replacement",
+                           COV_N_DISORDER  ~ "Consultation rate (mean, SD)",
+                           hx_hypertension  ~ "Hypertension or BP lowering medication",
+                           ICU_label ~ "ICU or Respiratory Support for infection",
+#                           age_cat  ~ "Age in decades",
+                           wimd  ~ "Deprivation",
+                          Pneum_Hosp ~ "Hospitalisation for pneumonia"
+              )
+  ) %>%
+  bold_labels() %>%
+  modify_table_styling(align="right")
+
+```
