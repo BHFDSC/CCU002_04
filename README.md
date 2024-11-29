@@ -1,4 +1,6 @@
-# Comparing the long-term risk of stroke/MI in patients after coronavirus infection with other respiratory infections
+# Risks of major arterial and venous thrombotic diseases after hospitalisation for influenza, pneumonia, and COVID-19: A population-wide cohort in 2.6 million people in Wales
+
+**Spencer Keene, Hoda Abbasizanjani, Fatemeh Torabi, Rochelle Knight, Venexia Walker, Elena Raffetti, Genevieve Cezard, Samantha Ip, Alexia Sampri, Thomas Bolton, Rachel Denholm, Kamlesh Khunti, Ashley Akbari, Jennifer Quint, Spiros Denaxas, Cathie Sudlow, Emanuele Di Angelantonio, Jonathan A.C. Sterne, Angela Wood, William N. Whiteley, on behalf of the CVD-COVID-UK/COVID-IMPACT Consortium and the Longitudinal Health and Wellbeing COVID-19 National Core Study**
 
 ## Project description
 
@@ -15,7 +17,7 @@ Our aims are:
 3. To understand whether subsequent risk varies according to whether patients infected with COVID-19 or non-COVID+ are hospitalised or not hospitalised. 
 
 ## How to cite this work
-> Citation details to follow
+Keene S, Abbasizanjani H, Torabi F, et al. Risks of major arterial and venous thrombotic diseases after hospitalisation for influenza, pneumonia, and COVID-19: A population-wide cohort in 2.6 million people in Wales. Thromb Res. Published online November 19, 2024. doi:https://doi.org/10.1016/j.thromres.2024.109213
 
 ## Contents
 
